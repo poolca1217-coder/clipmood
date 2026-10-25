@@ -53,7 +53,7 @@
  * ■ 큰 자료(사진·효과음)는 위쪽 <script>의 *_DATA 상수에 있습니다.
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
-const APP_VERSION = "v224";
+const APP_VERSION = "v225";
 const $ = (id) => document.getElementById(id),
   canvas = $("canvas");
 $("appVersion").textContent = APP_VERSION;
@@ -35918,7 +35918,7 @@ wizard154.className = "export-dialog123 wizard154";
 wizard154.hidden = true;
 wizard154.innerHTML = `<div class="export-box123 wiz-box154" role="dialog" aria-modal="true" aria-label="한 번에 만들기">
   <div class="export-head123"><b>✨ 한 번에 만들기</b><button type="button" class="export-close123" aria-label="닫기">✕</button></div>
-  <ol class="wiz-steps154"><li data-s="1">노래</li><li data-s="2">사진</li><li data-s="3">모양</li><li data-s="4">완성</li></ol>
+  <ol class="wiz-steps154"><li data-s="1">노래</li><li data-s="2">사진</li><li data-s="3">모양</li><li data-s="4">옵션 추가</li><li data-s="5">완성</li></ol>
   <section data-pane="1">
     <h3>어떤 노래로 만들까요?</h3>
     <p class="wiz-note154">노래가 들어 있는 폴더를 고르면 안에 있는 노래를 모두 넣어요. 몇 곡만 쓰려면 「노래 파일 고르기」로 골라 주세요.</p>
@@ -35946,6 +35946,18 @@ wizard154.innerHTML = `<div class="export-box123 wiz-box154" role="dialog" aria-
     <label class="export-check124"><input data-o="bar" type="checkbox" checked> 진행 막대 보이기</label>
   </section>
   <section data-pane="4" hidden>
+    <h3>원하는 꾸미기 옵션을 넣어 보세요</h3>
+    <p class="wiz-note154">종류와 항목을 고르고 추가하세요. 여러 개를 넣을 수 있으며, 아무것도 넣지 않아도 됩니다. 완성 후 타임라인에서 각각 크기·위치·길이를 조절할 수 있어요.</p>
+    <div class="wiz-grid154">
+      <label class="wiz-field154">옵션 종류<select data-o="extraType225"><option value="효과">효과</option><option value="스티커">스티커</option><option value="비주얼라이저">비주얼라이저</option><option value="필터">필터</option><option value="전환">전환</option></select></label>
+      <label class="wiz-field154">옵션 검색<input data-o="extraSearch225" type="search" placeholder="비, 눈, 하트, 네온…"></label>
+    </div>
+    <label class="wiz-field154">추가할 항목<select data-o="extraItem225"></select></label>
+    <div class="wiz-row154"><button type="button" data-a="extraAdd225">＋ 선택 옵션 추가</button><label class="wiz-field154">적용할 사진<select data-o="extraScope225"><option value="all">모든 사진</option><option value="first">첫 번째 사진만</option></select></label></div>
+    <div class="wiz-options225" data-extra-list225 aria-live="polite"></div>
+    <p class="wiz-note154">선택한 사진의 전체 길이에 적용됩니다. 제목·끝 화면에는 넣지 않으며 전환은 다음 장면이 있는 경계에 적용합니다.</p>
+  </section>
+  <section data-pane="5" hidden>
     <h3 class="wiz-done-title154">만드는 중…</h3>
     <div class="export-bar124 wiz-bar154"><i></i></div>
     <p class="wiz-progress154"></p>
@@ -35965,16 +35977,17 @@ function wizPaint154() {
   for (let sec of wizard154.querySelectorAll("section[data-pane]")) sec.hidden = +sec.dataset.pane !== s;
   let next = wz154('[data-a="next"]'),
     back = wz154('[data-a="back"]');
-  back.hidden = s === 1 || s === 4;
-  next.hidden = s === 4;
-  next.textContent = s === 3 ? "✨ 만들기" : "다음 →";
+  back.hidden = s === 1 || s === 5;
+  next.hidden = s === 5;
+  next.textContent = s === 4 ? "✨ 만들기" : "다음 →";
   next.disabled = (s === 1 && !wiz154.songs.length) || (s === 2 && !wiz154.photos.length && !wiz154.noPhoto);
-  wz154(".export-cancel123").textContent = s === 4 && !wiz154.running ? "닫기" : "취소";
+  wz154(".export-cancel123").textContent = s === 5 && !wiz154.running ? "닫기" : "취소";
   wz154(".export-cancel123").disabled = wiz154.running;
 }
 function openWizard154() {
   if (busy || projectOperation) return;
-  Object.assign(wiz154, { step: 1, songs: [], photos: [], dupPhotos: 0, seconds: 0, noPhoto: false, running: false });
+  Object.assign(wiz154, { step: 1, songs: [], photos: [], dupPhotos: 0, seconds: 0, noPhoto: false, running: false, options225: [] });
+  paintWizardOptions225();
   wz154('[data-sum="songs"]').textContent = "아직 고른 노래가 없어요.";
   wz154('[data-sum="photos"]').textContent = "아직 고른 사진이 없어요.";
   wz154(".wiz-finish154").hidden = true;
@@ -36033,7 +36046,7 @@ function wizProgress154(ratio, text) {
   wz154(".wiz-progress154").textContent = text;
 }
 async function wizBuild154() {
-  wiz154.step = 4;
+  wiz154.step = 5;
   wiz154.running = true;
   wizPaint154();
   wz154(".wiz-done-title154").textContent = "만드는 중… 이 창을 닫지 마세요";
@@ -36115,6 +36128,7 @@ async function wizBuild154() {
       playlistDialog135.hidden = true;
     }
     if (!clips.length) throw Error("장면을 만들지 못했어요.");
+    applyWizardOptions225(clips);
     // 6) 저장
     wizProgress154(0.95, "프로젝트를 저장하는 중…");
     try {
@@ -36157,7 +36171,7 @@ wizard154.addEventListener("click", (e) => {
     wizPaint154();
   }
   if (a === "next") {
-    if (wiz154.step < 3) {
+    if (wiz154.step < 4) {
       wiz154.step++;
       wizPaint154();
     } else wizBuild154();
@@ -36171,6 +36185,37 @@ wizard154.addEventListener("click", (e) => {
     youtubeSave154().catch((err) => status("유튜브용 저장 실패: " + err.message));
   }
 });
+function wizardCatalog225() {
+  const tab=wopt154("extraType225").value,query=wopt154("extraSearch225").value.trim().toLocaleLowerCase();
+  return (tab==="비주얼라이저"?visualizerLibrary:libraries[tab]||[]).filter(item=>item.value!=="none"&&item.value!=="original"&&(!query||(item.name+" "+(item.category||"")).toLocaleLowerCase().includes(query)));
+}
+function paintWizardOptions225() {
+  const select=wopt154("extraItem225"),previous=select.value;
+  select.replaceChildren();
+  for(const item of wizardCatalog225()){const o=document.createElement("option");o.value=item.id||item.name;o.textContent=item.name;select.append(o);}
+  if([...select.options].some(o=>o.value===previous))select.value=previous;
+  wz154('[data-a="extraAdd225"]').disabled=!select.options.length;
+  const list=wz154('[data-extra-list225]');list.replaceChildren();
+  if(!wiz154.options225?.length){list.textContent="추가한 옵션이 없습니다. 그대로 만들거나 원하는 옵션을 추가하세요.";return;}
+  for(const entry of wiz154.options225){const row=document.createElement("div"),label=document.createElement("span"),remove=document.createElement("button");row.className="wiz-option-row225";label.textContent=entry.tab+" · "+entry.name+" · "+(entry.scope==="first"?"첫 사진":"모든 사진");remove.type="button";remove.textContent="삭제";remove.setAttribute("aria-label",entry.name+" 옵션 삭제");remove.onclick=()=>{wiz154.options225=wiz154.options225.filter(o=>o.id!==entry.id);paintWizardOptions225();};row.append(label,remove);list.append(row);}
+}
+function applyWizardOptions225(scenes) {
+  const selected=wiz154.options225||[];
+  for(const [index,c] of scenes.entries())for(const entry of selected){
+    if(entry.scope==="first"&&index!==0)continue;
+    const key=paletteKeys[entry.tab];if(!key)continue;
+    if(key==="transition"){if(index<scenes.length-1)c.transition=entry.preset.transition;continue;}
+    const preset=structuredClone(entry.preset);
+    c.optionClips=[...(c.optionClips||[]),{id:crypto.randomUUID(),key,name:entry.name,start:0,end:length(c),preset,timelineSide215:"above"}];
+    rememberOptionOrder56(c);
+  }
+}
+wopt154("extraType225").onchange=()=>{wopt154("extraSearch225").value="";paintWizardOptions225();};
+wopt154("extraSearch225").oninput=paintWizardOptions225;
+wz154('[data-a="extraAdd225"]').onclick=()=>{
+  const tab=wopt154("extraType225").value,item=wizardCatalog225().find(o=>(o.id||o.name)===wopt154("extraItem225").value);if(!item)return;
+  (wiz154.options225||=[]).push({id:crypto.randomUUID(),tab,name:item.name,scope:wopt154("extraScope225").value,preset:structuredClone(presetForOption(tab,item))});paintWizardOptions225();
+};
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !wizard154.hidden && !wiz154.running) wizard154.hidden = true;
 });

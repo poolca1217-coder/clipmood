@@ -5634,6 +5634,10 @@ header button:not(.primary) {
 .wiz-field154 { display: flex; flex-direction: column; gap: 4px; font-size: 13px; margin: 6px 0; }
 .wiz-field154 input, .wiz-field154 select { padding: 8px; font-size: 14px; }
 .wiz-grid154 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; }
+.wiz-options225 {max-height:220px;overflow-y:auto;padding:10px;border:1px solid #72558c;border-radius:10px;font-size:13px;}
+.wiz-option-row225 {display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #ffffff16;}
+.wiz-option-row225 span {min-width:0;overflow-wrap:anywhere;}
+.wiz-option-row225 button {flex-shrink:0;padding:4px 10px;}
 .wiz-sum154 { min-height: 44px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.04); border: 1px dashed rgba(255,255,255,.15); font-size: 13px; line-height: 1.5; display: flex; flex-direction: column; gap: 3px; }
 .wiz-sum154 b { color: #a7f3d0; font-size: 14px; }
 .wiz-sum154 small { color: #aaa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

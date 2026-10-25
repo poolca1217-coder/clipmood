@@ -1,12 +1,12 @@
-# 클립무드 v224
+# 클립무드 v225
 
 사진·영상·음악을 편집하는 무료 온라인 영상 편집기입니다.
 
 - [소개 홈페이지](https://clipmood.pages.dev/)
 - [온라인 편집기 열기](https://poolca1217-coder.github.io/clipmood/)
-- [최신 편집기 ZIP 내려받기](https://poolca1217-coder.github.io/clipmood/downloads/ClipMood-v224.zip)
+- [최신 편집기 ZIP 내려받기](https://poolca1217-coder.github.io/clipmood/downloads/ClipMood-v225.zip)
 
-## v224 변경
+## v225 변경
 타임라인에서 효과를 선택하고 미리보기의 주황색 모서리를 드래그하면 크기가 바뀝니다. 안쪽을 드래그하면 위치가 바뀝니다. 오른쪽 조절기와 같은 값으로 저장되며 다른 효과와 이미지에는 적용되지 않습니다.
 
 ## 내려받은 편집기 실행
@@ -20,3 +20,6 @@ ZIP을 모두 압축 풀기한 뒤 실행.cmd를 더블클릭하거나 ClipMood.
 
 ## 배포
 GitHub Pages: main 브랜치 / (root). index.html과 assets 폴더를 함께 배포합니다. 외부 구성요소의 저작권 및 라이선스 고지는 JS 파일과 THIRD-PARTY-NOTICES.txt에 보존돼 있습니다.
+
+
+한 번에 만들기: 노래 → 사진 → 모양 → 옵션 추가 → 완성. 4단계에서 효과·스티커·비주얼라이저·필터·전환을 검색해 여러 개 담고 모든 사진 또는 첫 사진에 적용합니다. 옵션 없이 바로 만들어도 됩니다. 완성 후 타임라인에서 각각 편집하세요.
