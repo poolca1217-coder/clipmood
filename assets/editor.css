@@ -1597,6 +1597,12 @@ label.field > textarea {
   border-color: #b1ffe2;
   background: #60dab90c;
 }
+.effect-resize-box224 {border:1px dashed #ffb34d;box-sizing:border-box;transform-origin:center;}
+.effect-resize-handle224 {position:absolute;width:12px;height:12px;background:#ffb34d;border:1px solid #fff;border-radius:2px;box-sizing:border-box;touch-action:none;}
+.effect-resize-handle224.nw {left:-6px;top:-6px;cursor:nwse-resize;}
+.effect-resize-handle224.ne {right:-6px;top:-6px;cursor:nesw-resize;}
+.effect-resize-handle224.sw {left:-6px;bottom:-6px;cursor:nesw-resize;}
+.effect-resize-handle224.se {right:-6px;bottom:-6px;cursor:nwse-resize;}
 .text-drag-box.active {
   border: 1px dashed #6fe2c9;
 }

@@ -53,7 +53,7 @@
  * ■ 큰 자료(사진·효과음)는 위쪽 <script>의 *_DATA 상수에 있습니다.
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
-const APP_VERSION = "v223";
+const APP_VERSION = "v224";
 const $ = (id) => document.getElementById(id),
   canvas = $("canvas");
 $("appVersion").textContent = APP_VERSION;
@@ -5447,6 +5447,11 @@ function overlayItems(c) {
   value = value
     .filter((item) => item.kind !== "visualizer" || optionVisible(c, "visualizer", previewLocalTime(c)))
     .map((item) => (item.kind === "visualizer" ? { ...item, bounds: visualizerBounds(c.visualizer) } : item));
+  const effectItem = c.optionClips?.find(o => o.id === c.activeOptionId && o.key === "effect" && local >= o.start && local < o.end);
+  if (effectItem && !optionPreview73 && selectedTimelineOption?.c === (timingFrameSources.get(c) || c) && selectedTimelineOption.id === effectItem.id) {
+    const settings = fxSettings64(effectItem.preset.effectAdjust64), spread = effectItem.preset.effect === "lightleak" ? settings.spread : 1;
+    value.push({id:"effect:"+effectItem.id,kind:"effect",rotation:settings.rotation,bounds:{x:canvas.width*(settings.x-settings.scale*spread/2),y:canvas.height*(settings.y-settings.scale*spread/2),width:canvas.width*settings.scale*spread,height:canvas.height*settings.scale*spread}});
+  }
   return value;
 }
 function updateTextOverlay() {
@@ -5485,6 +5490,21 @@ function updateTextOverlay() {
           node.style.top = r.top - m.top + (item.bounds.y * r.height) / canvas.height + "px";
           node.style.width = (item.bounds.width * r.width) / canvas.width + "px";
           node.style.height = (item.bounds.height * r.height) / canvas.height + "px";
+          if (item.kind === "effect") {
+            node.classList.add("effect-resize-box224");
+            node.dataset.effectId224 = item.id.slice(7);
+            node.style.transform = "rotate("+item.rotation+"deg)";
+            node.style.zIndex = "0";
+            node.setAttribute("aria-label", "선택한 효과 이동 및 크기 조절");
+            node.title = "가운데 드래그: 효과 이동 · 모서리 드래그: 효과 크기 조절";
+            if (!node.effectResizeReady224) {
+              node.effectResizeReady224 = true;
+              for (const corner of ["nw","ne","sw","se"]) {
+                const h=document.createElement("span");h.className="effect-resize-handle224 "+corner;h.dataset.corner224=corner;
+                h.setAttribute("aria-label","효과 "+corner+" 모서리 크기 조절");node.append(h);
+              }
+            }
+          }
         }
       }
     }
@@ -5544,6 +5564,41 @@ function updateTextOverlay() {
     }
   }
 }
+function beginEffectGeometry224(event, node, corner) {
+  if (busy || projectOperation || playing || event.button !== 0) return;
+  const c=clips[current],id=node.dataset.effectId224,item=c?.optionClips?.find(o=>o.id===id&&o.key==="effect");
+  if (!item) return;
+  event.preventDefault();event.stopPropagation();event.stopImmediatePropagation?.();
+  pause();previewMotion=null;remember();
+  const original=fxSettings64(item.preset.effectAdjust64),rect=canvas.getBoundingClientRect(),angle=original.rotation*Math.PI/180,
+    cos=Math.cos(angle),sin=Math.sin(angle),sx=corner?.includes("e")?1:-1,sy=corner?.includes("s")?1:-1,
+    spread=item.preset.effect==="lightleak"?original.spread:1,w=canvas.width*original.scale*spread,h=canvas.height*original.scale*spread;
+  if (!rect.width || !rect.height) return;
+  node.setPointerCapture(event.pointerId);
+  function move(ev) {
+    const dx=(ev.clientX-event.clientX)*canvas.width/rect.width,dy=(ev.clientY-event.clientY)*canvas.height/rect.height;
+    let next={...original};
+    if (corner) {
+      const rx=(dx*cos+dy*sin)*sx/w,ry=(-dx*sin+dy*cos)*sy/h;
+      next.scale=Math.max(.25,Math.min(3,original.scale*(1+(Math.abs(rx)>=Math.abs(ry)?rx:ry))));
+      const delta=next.scale/original.scale-1,tx=sx*w*delta/2,ty=sy*h*delta/2;
+      next.x=original.x+(tx*cos-ty*sin)/canvas.width;next.y=original.y+(tx*sin+ty*cos)/canvas.height;
+    } else {next.x+=dx/canvas.width;next.y+=dy/canvas.height;}
+    next.x=Math.max(0,Math.min(1,next.x));next.y=Math.max(0,Math.min(1,next.y));
+    c.optionClips=c.optionClips.map(o=>o.id===id?{...o,preset:{...o.preset,effectAdjust64:next}}:o);
+    c.effectAdjust64={...next};syncEffectPanel64();draw();
+  }
+  function finish() {
+    node.removeEventListener("pointermove",move);node.removeEventListener("pointerup",finish);node.removeEventListener("pointercancel",finish);
+    if(node.hasPointerCapture?.(event.pointerId))node.releasePointerCapture(event.pointerId);
+    syncEffectPanel64();render();draw();
+  }
+  node.addEventListener("pointermove",move);node.addEventListener("pointerup",finish);node.addEventListener("pointercancel",finish);
+}
+window.addEventListener("pointerdown",event=>{
+  const node=event.target instanceof Element&&event.target.closest(".effect-resize-box224");
+  if(node)beginEffectGeometry224(event,node,event.target.dataset.corner224);
+},true);
 function beginTextDrag(e, id, kind) {
   if (busy || projectOperation || playing) {
   } else {
