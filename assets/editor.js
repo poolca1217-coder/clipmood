@@ -53,7 +53,7 @@
  * ■ 큰 자료(사진·효과음)는 위쪽 <script>의 *_DATA 상수에 있습니다.
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
-const APP_VERSION = "v225";
+const APP_VERSION = "v226";
 const $ = (id) => document.getElementById(id),
   canvas = $("canvas");
 $("appVersion").textContent = APP_VERSION;
@@ -35010,23 +35010,26 @@ document.body.append(claudeDialog142);
 // ═══════════════════════════════════════════════════════════════════
 var lyrics143 = [],
   restoreLyricsState143 = null;
+let lyricAI226 = null;
 function cloneLyrics143(list) {
   return (list || []).map((b) => ({ ...b, lines: (b.lines || []).map((l) => ({ ...l })) }));
 }
 function parseLyrics143(text) {
   let rows = [],
-    timed = [];
+    timed = [], offset = 0;
+  const offsetTag=String(text||"").match(/\[offset:([+-]?\d+)\]/i);
+  if(offsetTag)offset=Number(offsetTag[1])/1000;
   for (let raw of String(text || "").split(/\r?\n/)) {
     let tags = [...raw.matchAll(/\[(\d{1,2}):(\d{1,2}(?:[.:]\d{1,3})?)\]/g)],
       body = raw.replace(/\[[^\]]*\]/g, "").trim();
     if (tags.length) {
-      for (let m of tags) timed.push({ t: +m[1] * 60 + parseFloat(m[2].replace(":", ".")), text: body });
+      for (let m of tags) timed.push({ t: Math.max(0,+m[1] * 60 + parseFloat(m[2].replace(":", "."))+offset), text: body });
       continue;
     }
     if (/^\[(ar|ti|al|by|offset|length|re|ve):/i.test(raw.trim())) continue;
-    if (body) rows.push(body);
+    if (body) {rows.push(body);timed.push({t:null,text:body});}
   }
-  if (timed.length >= 2) return { lines: timed.filter((l) => l.text).sort((a, b) => a.t - b.t), timed: true };
+  if (timed.some(l=>Number.isFinite(l.t))) {const lines=timed.filter(l=>l.text);return {lines:lines.every(l=>Number.isFinite(l.t))?lines.sort((a,b)=>a.t-b.t):lines,timed:true};}
   return { lines: rows.map((text) => ({ t: null, text })), timed: false };
 }
 function autoTime143(lines, dur, intro, outro) {
@@ -35179,7 +35182,7 @@ lyricDialog143.innerHTML = `<div class="export-box123 lyric-box143" role="dialog
   <textarea id="ly143-text" rows="8" placeholder="가사를 한 줄씩 붙여넣으세요.&#10;시간이 적힌 LRC 가사([00:12.50] 처럼)도 그대로 붙여넣으면 시간까지 맞춰져요."></textarea>
   <div class="export-options123">
     <label>모양 <select id="ly143-style"><option value="scroll">흘러가기 (위로 스크롤)</option><option value="line">한 줄씩 나타나기</option><option value="karaoke">노래방 (색 채우기)</option></select></label>
-    <label>시간 맞추기 <select id="ly143-timing"><option value="auto">자동 (노래 길이에 고르게)</option><option value="lrc">LRC 가사의 시간 그대로</option><option value="tap">직접 탭해서 맞춘 시간</option></select></label>
+    <label>시간 맞추기 <select id="ly143-timing"><option value="auto">길이에 나눠 배치 (음성 분석 아님)</option><option value="lrc">LRC 가사의 시간 그대로</option><option value="tap">직접 탭해서 맞춘 시간</option><option value="ai">AI 분석 · 줄별 보정</option></select></label>
     <label>전주 (초) <input id="ly143-intro" type="number" min="0" step="1" value="10"></label>
     <label>끝 여백 (초) <input id="ly143-outro" type="number" min="0" step="1" value="8"></label>
     <label>위치 <select id="ly143-pos"><option value="0.5,0.5">가운데</option><option value="0.5,0.78">아래쪽</option><option value="0.5,0.24">위쪽</option><option value="0.7,0.5">오른쪽</option><option value="0.3,0.5">왼쪽</option></select></label>
@@ -35187,6 +35190,13 @@ lyricDialog143.innerHTML = `<div class="export-box123 lyric-box143" role="dialog
     <label>글자색 <input id="ly143-color" type="color" value="#ffffff"></label>
     <label>강조색 <input id="ly143-accent" type="color" value="#ffd166"></label>
     <label class="export-check124 export-name123"><input id="ly143-box" type="checkbox" checked> 가사 뒤에 반투명 바탕 깔기 (사진이 밝아도 잘 보여요)</label>
+  </div>
+  <div class="ly-ai226">
+    <label>가사 언어 <select id="ly226-language"><option value="korean">한국어</option><option value="english">영어</option><option value="japanese">일본어</option><option value="auto">자동 감지</option></select></label>
+    <button type="button" data-a="align226">✨ AI로 노래에 맞추기</button><button type="button" data-a="cancelai226" hidden>분석 취소</button>
+    <p>음악과 붙여넣은 가사를 비교해 줄 시작 시간을 제안합니다. 최초 실행은 수백 MB의 AI 모델을 내려받으며 몇 분 이상 걸릴 수 있습니다. 음악은 서버로 보내지 않고 이 브라우저에서 분석합니다. 노래는 오인식이 생길 수 있으니 ‘확인 필요’ 줄을 미리 듣고 보정하세요.</p>
+    <p class="ly-ai-status226" role="status"></p><div class="ly-line-editor226"></div>
+    <button type="button" data-a="lrc226">맞춘 가사를 LRC로 저장</button>
   </div>
   <div class="ly-tap143">
     <button type="button" data-a="tap" class="primary">🎯 탭해서 시간 맞추기</button>
@@ -35210,7 +35220,8 @@ function lyBlock143() {
     dur = trackDuration(track),
     lines = parsed.lines;
   if (!lines.length) return { trackId, lines: [] };
-  if (timing === "tap" && ly143?.tapTimes?.length) lines = lines.map((l, i) => ({ ...l, t: ly143.tapTimes[i] ?? null }));
+  if (timing === "ai" && ly143?.alignedLines226) lines = ly143.alignedLines226.map(l=>({...l}));
+  else if (timing === "tap" && ly143?.tapTimes?.length) lines = lines.map((l, i) => ({ ...l, t: ly143.tapTimes[i] ?? null }));
   else if (timing === "lrc" && parsed.timed) lines = lines.map((l) => ({ ...l }));
   else lines = autoTime143(lines.map((l) => ({ text: l.text })), dur, Math.max(0, +lyV143("ly143-intro").value || 0), Math.max(0, +lyV143("ly143-outro").value || 0));
   let [x, y] = lyV143("ly143-pos").value.split(",").map(Number);
@@ -35220,7 +35231,7 @@ function lyPreview143() {
   if (!ly143) return;
   let b = lyBlock143(),
     info = lyricDialog143.querySelector(".ly-info143");
-  lyrics143 = cloneLyrics143(ly143.backup).filter((x) => x.trackId !== b?.trackId);
+  lyrics143 = cloneLyrics143(lyrics143).filter((x) => x.trackId !== b?.trackId);
   if (b?.lines?.length) lyrics143.push(b);
   let parsed = parseLyrics143(lyV143("ly143-text").value);
   info.textContent = !b
@@ -35234,7 +35245,7 @@ function lyFill143(trackId) {
   let block = lyrics143.find((b) => b.trackId === trackId);
   if (block) {
     lyV143("ly143-text").value = block.lines.map((l) => (Number.isFinite(l.t) ? "[" + String(Math.floor(l.t / 60)).padStart(2, "0") + ":" + (l.t % 60).toFixed(2).padStart(5, "0") + "] " : "") + l.text).join("\n");
-    lyV143("ly143-timing").value = "lrc";
+    lyV143("ly143-timing").value = block.lines.some(l=>l.confidence226!==undefined)?"ai":"lrc";
     lyV143("ly143-style").value = block.style || "scroll";
     lyV143("ly143-size").value = block.size || 1;
     lyV143("ly143-color").value = block.color || "#ffffff";
@@ -35246,7 +35257,8 @@ function lyFill143(trackId) {
     lyV143("ly143-text").value = "";
     lyV143("ly143-timing").value = "auto";
   }
-  if (ly143) ly143.tapTimes = null;
+  if (ly143) {ly143.tapTimes = null;ly143.alignedLines226=block?.lines?.map(l=>({...l}))||null;ly143.activeTrack226=trackId;}
+  paintLyricRows226();
 }
 function openLyrics143() {
   if (busy || projectOperation) return;
@@ -35265,6 +35277,7 @@ function openLyrics143() {
 }
 function lyClose143(keep) {
   if (!ly143) return;
+  cancelLyricAI226();
   pause();
   if (!keep) lyrics143 = cloneLyrics143(ly143.backup);
   lyTapEnd143();
@@ -35323,6 +35336,81 @@ function lyTap143() {
   lyPreview143();
   if (ly143.tapIndex >= lines.length) lyTapEnd143();
 }
+function alignLyricWords226(lines, chunks, duration) {
+  const norm=s=>String(s||"").normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,"");
+  const spans=[],letters=[],times=[];
+  let target="";
+  for(const line of lines){const text=norm(line.text);spans.push({start:target.length,length:text.length,text:line.text});target+=text;}
+  for(const chunk of chunks||[]){const text=norm(chunk.text),a=chunk.timestamp?.[0],b=chunk.timestamp?.[1];if(!text||!Number.isFinite(a)||a<0||a>=duration)continue;const end=Number.isFinite(b)&&b>=a?Math.min(duration,b):Math.min(duration,a+.3);for(let k=0;k<text.length;k++){letters.push(text[k]);times.push(a+(end-a)*k/text.length);}}
+  const source=letters.join(""),N=target.length,M=source.length;
+  if(!N||!M)throw Error("노래에서 가사를 인식하지 못했습니다. 보컬이 잘 들리는 음원을 사용하거나 탭으로 맞춰 주세요.");
+  if((N+1)*(M+1)>36000000)throw Error("가사나 인식 결과가 너무 깁니다. 한 곡을 나누어 분석해 주세요.");
+  const path=new Uint8Array((N+1)*(M+1));let previous=new Float32Array(M+1),row=new Float32Array(M+1);
+  for(let i=1;i<=N;i++){row[0]=i;path[i*(M+1)]=1;for(let j=1;j<=M;j++){const diagonal=previous[j-1]+(target[i-1]===source[j-1]?0:1.2),up=previous[j]+1,left=row[j-1]+1;let code=0,value=diagonal;if(up<value){value=up;code=1;}if(left<value){value=left;code=2;}row[j]=value;path[i*(M+1)+j]=code;}[previous,row]=[row,previous];}
+  let j=1;for(let k=2;k<=M;k++)if(previous[k]<previous[j])j=k;
+  const mapped=new Int32Array(N).fill(-1),exact=new Uint8Array(N);let i=N;
+  while(i>0&&j>0){const code=path[i*(M+1)+j];if(code===0){mapped[i-1]=j-1;exact[i-1]=target[i-1]===source[j-1]?1:0;i--;j--;}else if(code===1)i--;else j--;}
+  if(exact.reduce((s,n)=>s+n,0)/N<.2)throw Error("붙여넣은 가사와 인식된 노래가 충분히 일치하지 않습니다. 같은 곡의 가사인지 확인해 주세요. 기존 시간은 유지했습니다.");
+  return spans.map(span=>{let matches=0,first=-1;for(let k=span.start;k<span.start+span.length;k++){matches+=exact[k];if(first<0&&exact[k])first=mapped[k];}const confidence=span.length?matches/span.length:0;return {text:span.text,t:first>=0&&confidence>=.2?Math.round(times[first]*100)/100:null,confidence226:confidence};});
+}
+function paintLyricRows226() {
+  const list=lyricDialog143.querySelector('.ly-line-editor226');if(!list)return;list.replaceChildren();
+  if(!ly143)return;
+  const lines=ly143.alignedLines226;if(!lines?.length)return;
+  lines.forEach((line,index)=>{
+    const row=document.createElement('div'),input=document.createElement('input'),text=document.createElement('input'),actions=document.createElement('div'),label=document.createElement('span');
+    row.className='ly-line-row226'+(!Number.isFinite(line.t)||(!line.verified226&&(line.confidence226??1)<.6)?' needs-review226':'');
+    input.type='number';input.min='0';input.step='.05';input.value=Number.isFinite(line.t)?line.t:'';input.setAttribute('aria-label',(index+1)+'줄 시작 시간(초)');
+    text.type='text';text.value=line.text;text.setAttribute('aria-label',(index+1)+'줄 가사');actions.className='ly-line-actions226';
+    label.textContent=!Number.isFinite(line.t)?'시간 확인 필요':!line.verified226&&(line.confidence226??1)<.6?'인식 일치 낮음 · 확인 필요':'시작 시간(초)';actions.append(label);
+    function commit(){cancelLyricAI226();ly143.alignedLines226[index]={...ly143.alignedLines226[index],t:input.value===''?null:Number(input.value),text:text.value,verified226:true};row.classList.toggle('needs-review226',input.value==='');label.textContent='직접 보정한 시간';lyV143('ly143-timing').value='ai';lyPreview143();}
+    input.onchange=commit;text.onchange=commit;
+    for(const [caption,delta] of [['−0.2초',-.2],['+0.2초',.2]]){const b=document.createElement('button');b.type='button';b.textContent=caption;b.onclick=()=>{input.value=Math.max(0,(Number(input.value)||0)+delta).toFixed(2);commit();};actions.append(b);}
+    const listen=document.createElement('button');listen.type='button';listen.textContent='▶ 이 줄 듣기';listen.onclick=async()=>{const track=musicTracks.find(t=>t.id===lyV143('ly143-track').value),at=Number(input.value);if(!track||input.value===''||!Number.isFinite(at))return;pause();await go(track.start+Math.max(0,at-.7));await $('play').onclick();};actions.append(listen);
+    row.append(input,text,actions);list.append(row);
+  });
+}
+function cancelLyricAI226() {
+  if(lyricAI226){lyricAI226.cancelled=true;lyricAI226.worker?.terminate();if(lyricAI226.url)URL.revokeObjectURL(lyricAI226.url);lyricAI226.reject?.(Error('AI 분석을 취소했습니다.'));lyricAI226=null;}
+}
+async function lyricAudio226(track) {
+  const duration=trackDuration(track);if(!Number.isFinite(duration)||duration<=0||duration>1200)throw Error('AI 가사 분석은 한 곡 20분까지 지원합니다. 더 긴 음원은 곡별로 나눠 주세요.');
+  const decoded=await decodeWhole124(await audioBlob124(track)),render=new OfflineAudioContext(1,Math.ceil(duration*16000),16000),node=render.createBufferSource();
+  node.buffer=decoded;node.playbackRate.value=tapeRate89(track);node.connect(render.destination);node.start(0,Math.max(0,track.trimStart||0),Math.max(0,(track.trimEnd??decoded.duration)-(track.trimStart||0)));
+  return (await render.startRendering()).getChannelData(0).slice();
+}
+async function startLyricAI226() {
+  if(!ly143||lyricAI226)return;
+  const track=musicTracks.find(t=>t.id===lyV143('ly143-track').value),text=lyV143('ly143-text').value,lines=parseLyrics143(text).lines;
+  if(!track||!lines.length){lyricDialog143.querySelector('.ly-ai-status226').textContent='노래를 고르고 가사를 먼저 붙여넣으세요.';return;}
+  if(typeof Worker==='undefined'){lyricDialog143.querySelector('.ly-ai-status226').textContent='이 브라우저는 AI 작업을 지원하지 않습니다. Chrome 또는 Edge로 열어 주세요.';return;}
+  pause();lyTapEnd143();
+  const statusNode=lyricDialog143.querySelector('.ly-ai-status226'),button=lyricDialog143.querySelector('[data-a="align226"]'),cancel=lyricDialog143.querySelector('[data-a="cancelai226"]'),session=ly143,job={cancelled:false,worker:null,url:null,reject:null};lyricAI226=job;button.disabled=true;cancel.hidden=false;
+  try{
+    statusNode.textContent='선택한 노래를 읽는 중…';const audio=await lyricAudio226(track);if(job.cancelled||ly143!==session)return;
+    const language=lyV143('ly226-language').value;
+    const code=`import {pipeline,env} from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js';
+env.allowLocalModels=false;env.backends.onnx.wasm.numThreads=1;
+self.onmessage=async e=>{try{const {audio,language}=e.data;let last=0;const asr=await pipeline('automatic-speech-recognition','onnx-community/whisper-base_timestamped',{device:'wasm',dtype:{encoder_model:'q8',decoder_model_merged:'fp32'},progress_callback:p=>{if(Date.now()-last>800){last=Date.now();self.postMessage({type:'progress',text:'AI 모델 준비 중… '+(p.progress?Math.round(p.progress)+'%':'')});}});const chunks=[],sr=16000,total=audio.length/sr;for(let base=0;base<total;base+=80){const from=Math.max(0,base-5),to=Math.min(total,base+85);self.postMessage({type:'progress',text:'노래 분석 중… '+Math.round(base/total*100)+'%'});const result=await asr(audio.slice(Math.floor(from*sr),Math.floor(to*sr)),{return_timestamps:'word',chunk_length_s:30,stride_length_s:5,task:'transcribe',...(language==='auto'?{}:{language})});for(const c of result.chunks||[]){const a=c.timestamp?.[0],b=c.timestamp?.[1];if(!Number.isFinite(a))continue;const mid=from+(a+(Number.isFinite(b)?b:a))/2;if(mid<base||(base+80<total&&mid>=base+80))continue;chunks.push({text:c.text,timestamp:[from+a,Number.isFinite(b)?from+b:null]});}}await asr.dispose();self.postMessage({type:'done',chunks});}catch(err){self.postMessage({type:'error',message:err.message});}};`;
+    job.url=URL.createObjectURL(new Blob([code],{type:'text/javascript'}));job.worker=new Worker(job.url,{type:'module'});
+    const chunks=await new Promise((resolve,reject)=>{job.reject=reject;job.worker.onmessage=e=>{if(e.data.type==='progress')statusNode.textContent=e.data.text;else if(e.data.type==='done')resolve(e.data.chunks);else if(e.data.type==='error')reject(Error(e.data.message));};job.worker.onerror=e=>reject(Error(e.message||'AI 엔진을 불러오지 못했습니다. 인터넷 연결을 확인하세요.'));job.worker.postMessage({audio,language},[audio.buffer]);});
+    if(job.cancelled||ly143!==session||lyV143('ly143-track').value!==track.id||lyV143('ly143-text').value!==text)return;
+    const aligned=alignLyricWords226(lines,chunks,trackDuration(track));ly143.alignedLines226=aligned;lyV143('ly143-timing').value='ai';lyPreview143();paintLyricRows226();
+    const review=aligned.filter(l=>!Number.isFinite(l.t)||l.confidence226<.6).length;statusNode.textContent='AI 시간 제안 완료 · '+aligned.length+'줄 / 확인 필요 '+review+'줄. 미리 듣고 보정한 뒤 적용하세요.';
+  }catch(e){if(ly143===session)statusNode.textContent=job.cancelled?'AI 분석을 취소했습니다. 기존 시간은 유지됩니다.':'분석하지 못했습니다: '+e.message+' 기존 시간은 유지됩니다.';}
+  finally{job.worker?.terminate();if(job.url)URL.revokeObjectURL(job.url);if(lyricAI226===job)lyricAI226=null;button.disabled=false;cancel.hidden=true;}
+}
+lyricDialog143.addEventListener('click',event=>{
+  const action=event.target.closest('button')?.dataset.a;
+  if(action==='align226')startLyricAI226();
+  if(action==='cancelai226')cancelLyricAI226();
+  if(action==='lrc226'){
+    const block=lyBlock143();if(!block?.lines?.length)return;
+    if(block.lines.some((l,i)=>!Number.isFinite(l.t)||l.t<0||(i>0&&l.t<=block.lines[i-1].t))){lyricDialog143.querySelector('.ly-ai-status226').textContent='빈 시간과 줄 순서를 먼저 보정하세요.';return;}
+    const text=block.lines.map(l=>'['+String(Math.floor(l.t/60)).padStart(2,'0')+':'+(l.t%60).toFixed(2).padStart(5,'0')+'] '+l.text).join('\n'),track=musicTracks.find(t=>t.id===block.trackId);
+    download(new Blob([text],{type:'text/plain;charset=utf-8'}),(track?.name||'가사').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]/g,'_')+'.lrc');
+  }
+});
 window.addEventListener(
   "keydown",
   (e) => {
@@ -35344,13 +35432,16 @@ window.addEventListener(
   let t = null;
   lyricDialog143.addEventListener("input", (e) => {
     if (!ly143) return;
-    if (e.target.id === "ly143-text") ly143.tapTimes = null;
+    if (e.target.id === "ly143-text") {cancelLyricAI226();ly143.tapTimes = null;ly143.alignedLines226=null;if(lyV143("ly143-timing").value==="ai")lyV143("ly143-timing").value="auto";paintLyricRows226();}
     clearTimeout(t);
     t = setTimeout(lyPreview143, e.target.id === "ly143-text" ? 400 : 60);
   });
   lyricDialog143.addEventListener("change", (e) => {
     if (!ly143) return;
     if (e.target.id === "ly143-track") {
+      const next=e.target.value,previous=ly143.activeTrack226;
+      if(previous){e.target.value=previous;lyPreview143();}e.target.value=next;
+      cancelLyricAI226();
       lyTapEnd143();
       lyFill143(e.target.value);
     }
@@ -35376,6 +35467,9 @@ window.addEventListener(
       draw();
     }
     if (a === "apply") {
+      lyPreview143();
+      const invalid=lyrics143.some(b=>{const track=musicTracks.find(t=>t.id===b.trackId);return b.lines.some((l,i)=>!Number.isFinite(l.t)||l.t<0||(track&&l.t>=trackDuration(track))||(i>0&&Number.isFinite(b.lines[i-1].t)&&l.t<=b.lines[i-1].t));});
+      if(invalid){lyricDialog143.querySelector('.ly-info143').textContent="시간이 비어 있거나 앞줄보다 빠른 줄이 있습니다. 줄별 시간을 보정한 뒤 적용하세요.";return;}
       let now = cloneLyrics143(lyrics143);
       lyrics143 = cloneLyrics143(ly143.backup);
       remember();

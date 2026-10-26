@@ -11,3 +11,8 @@ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 Only Category10 values are used, not ColorBrewer schemes. 
+
+AI lyric timing (optional on-demand download):
+Transformers.js 3.8.1 — https://github.com/huggingface/transformers.js — Apache-2.0.
+Whisper base ONNX timestamped model — https://huggingface.co/onnx-community/whisper-base_timestamped — upstream OpenAI Whisper MIT: https://github.com/openai/whisper/blob/main/LICENSE .
+Runtime and model licenses remain with the upstream downloaded resources; audio inference runs locally in a browser worker. No model weights are bundled in the portable ZIP.
