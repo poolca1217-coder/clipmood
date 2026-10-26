@@ -53,7 +53,7 @@
  * ■ 큰 자료(사진·효과음)는 위쪽 <script>의 *_DATA 상수에 있습니다.
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
-const APP_VERSION = "v226";
+const APP_VERSION = "v227";
 const $ = (id) => document.getElementById(id),
   canvas = $("canvas");
 $("appVersion").textContent = APP_VERSION;
@@ -377,6 +377,7 @@ async function go(t) {
   renderMusicEditPanel();
   updateOrangeMarker();
 }
+let timelineVisualPreview227 = false;
 async function select(i) {
   if (!optionFocusDepth81) selectDeleteTarget81(clips[i] ? "visual" : "none", { c: clips[i] });
   selectedTimelineOption = null;
@@ -385,6 +386,9 @@ async function select(i) {
   if (!busy) {
     pause();
     selected = i;
+    // A timeline scene takes precedence over an audio-library source monitor.
+    // Keep the library tab/selection so returning to that source still works.
+    timelineVisualPreview227 = !!clips[i];
     fields();
     render();
     try {
@@ -1530,6 +1534,7 @@ let mediaNodes = [...firstAside.children].filter((n) => n !== tabs && n !== tool
 const DIRECT_PHOTO_TABS = ["효과", "에셋", "필터", "템플릿", "전환"];
 
 function showTab(tab) {
+  timelineVisualPreview227 = false;
   if (tab === "효과음") {
     renderToolTab("미디어");
     highlightTab("효과음");
@@ -10715,6 +10720,7 @@ function renderMediaBrowser() {
 filterMedia = renderMediaBrowser;
 $("mediaSearch").oninput = renderMediaBrowser;
 async function selectMedia(id) {
+  if (!busy && !projectOperation) timelineVisualPreview227 = false;
   if (!busy && !projectOperation && mediaCatalog.some((m) => m.id === id && m.kind === "audio")) {
     selectedTimelineOption = null;
     deleteTarget81 = {
@@ -19996,6 +20002,7 @@ audioTarget = function () {
 };
 async function selectAudio70(row, event = {}) {
   if (busy || projectOperation) return;
+  timelineVisualPreview227 = false;
   let rows = audioItems70(),
     index = rows.findIndex((r) => r.id === row.id);
   if (event.shiftKey && audioAnchor70) {
@@ -20016,6 +20023,7 @@ async function selectAudio70(row, event = {}) {
   pause();
   let token = ++audioSelectToken70;
   audioChoice70 = row.id;
+  syncMediaAudio71(false);
   audioZoom70 = 1;
   if (row.track) {
     audioSource70 = null;
@@ -20654,8 +20662,10 @@ filterMedia = renderMediaBrowser;
 // The main media workflow shares the audio workspace, rather than requiring a second tab.
 function audioWorkspaceActive71() {
   return (
+    !timelineVisualPreview227 && (
     activeMenu() === "오디오" ||
     (activeMenu() === "미디어" && mediaCatalog.some((m) => m.id === selectedMediaId && m.kind === "audio"))
+    )
   );
 }
 let mediaAudioPending71 = Promise.resolve();
@@ -20674,7 +20684,7 @@ function refreshMediaWaves71() {
     }
   }
 }
-function syncMediaAudio71() {
+function syncMediaAudio71(selectSource = true) {
   let media = activeMenu() === "미디어",
     active = audioWorkspaceActive71();
   document.body.classList.toggle("audio-mode70", active);
@@ -20691,7 +20701,7 @@ function syncMediaAudio71() {
     if (processedPreviewTarget === audioSource70) processedPreviewTarget = null;
     return;
   }
-  if (media) {
+  if (media && selectSource) {
     let row = audioItems70().find((r) => r.item?.id === selectedMediaId);
     if (row && audioChoice70 !== row.id) {
       if (mediaAudition) mediaAudition.pause();
