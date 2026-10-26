@@ -35364,7 +35364,7 @@ function paintLyricRows226() {
     text.type='text';text.value=line.text;text.setAttribute('aria-label',(index+1)+'줄 가사');actions.className='ly-line-actions226';
     label.textContent=!Number.isFinite(line.t)?'시간 확인 필요':!line.verified226&&(line.confidence226??1)<.6?'인식 일치 낮음 · 확인 필요':'시작 시간(초)';actions.append(label);
     function commit(){cancelLyricAI226();ly143.alignedLines226[index]={...ly143.alignedLines226[index],t:input.value===''?null:Number(input.value),text:text.value,verified226:true};row.classList.toggle('needs-review226',input.value==='');label.textContent='직접 보정한 시간';lyV143('ly143-timing').value='ai';lyPreview143();}
-    input.onchange=commit;text.onchange=commit;
+    input.oninput=commit;text.oninput=commit;input.onchange=commit;text.onchange=commit;
     for(const [caption,delta] of [['−0.2초',-.2],['+0.2초',.2]]){const b=document.createElement('button');b.type='button';b.textContent=caption;b.onclick=()=>{input.value=Math.max(0,(Number(input.value)||0)+delta).toFixed(2);commit();};actions.append(b);}
     const listen=document.createElement('button');listen.type='button';listen.textContent='▶ 이 줄 듣기';listen.onclick=async()=>{const track=musicTracks.find(t=>t.id===lyV143('ly143-track').value),at=Number(input.value);if(!track||input.value===''||!Number.isFinite(at))return;pause();await go(track.start+Math.max(0,at-.7));await $('play').onclick();};actions.append(listen);
     row.append(input,text,actions);list.append(row);
