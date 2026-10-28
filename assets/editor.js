@@ -53,7 +53,8 @@
  * ■ 큰 자료(사진·효과음)는 위쪽 <script>의 *_DATA 상수에 있습니다.
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
-const APP_VERSION = "v228";
+let suppliedDesigns229 = null;
+const APP_VERSION = "v229";
 const $ = (id) => document.getElementById(id),
   canvas = $("canvas");
 $("appVersion").textContent = APP_VERSION;
@@ -4210,6 +4211,15 @@ baseFilterCSS = function (value) {
   return filterLibrary.find((f) => f.value === value)?.css ?? previousFilterCSS(value);
 };
 function textPaint(text, size, color, y, style = {}) {
+  if (suppliedDesigns229?.isTrot228(style)) {
+    ctx.save();
+    try {
+      ctx.letterSpacing = ((style.letterSpacing87 || 0) * canvas.height) / 720 + "px";
+      ctx.globalAlpha *= style.renderOpacity87 ?? 1;
+      suppliedDesigns229.trotText228(ctx, canvas.width, text, size, color, y, style);
+    } finally { ctx.restore(); }
+    return;
+  }
   ctx.save();
   ctx.letterSpacing = ((style.letterSpacing87 || 0) * canvas.height) / 720 + "px";
   ctx.globalAlpha *= style.renderOpacity87 ?? 1;
@@ -7184,6 +7194,7 @@ function syncTypography() {
 }
 const titleThumbnailCache = new Map();
 function titleThumbnail(item) {
+  if (suppliedDesigns229?.isTrot228(item?.style)) return suppliedDesigns229.trotThumb228(item, 240, 130, item.name.split(" · ")[0]);
   if (titleThumbnailCache.has(item.id)) return titleThumbnailCache.get(item.id);
   let c = document.createElement("canvas");
   c.width = 240;
@@ -13287,6 +13298,7 @@ function thumbText(x, text, size, color, font = "sans-serif") {
   x.fillText(text, 240, 137, 430);
 }
 function richOptionThumbnail(tab, item) {
+  if ((tab === "텍스트" || tab === "캡션") && suppliedDesigns229?.isTrot228(item?.style)) return suppliedDesigns229.trotThumb228(item, 480, 270, tab === "캡션" ? "오늘의 노래" : "나의 노래");
   let result;
   // 3D 이모지 스티커는 그림 파일을 그대로 카드에 보여 줍니다 (CSS에서 잘리지 않게 맞춤).
   if (tab === "스티커" && item?.design?.style === "image3d") return item.design.src;
@@ -14183,15 +14195,29 @@ async function insertOptionClip(tab, item, absoluteTime) {
     }
     return;
   }
+  absoluteTime = Math.max(0, Number(absoluteTime) || 0);
   let index = clips.findIndex((c, i) => absoluteTime >= offset(i) && absoluteTime < offset(i) + length(c));
+  const inside = index >= 0;
+  if (!inside && clips.length) {
+    let distance = Infinity;
+    clips.forEach((c, i) => {
+      const d = Math.min(Math.abs(absoluteTime - offset(i)), Math.abs(absoluteTime - offset(i) - length(c)));
+      if (d < distance) { distance = d; index = i; }
+    });
+  }
   if (index < 0) {
     status("옵션은 이미지·영상 구간 위로 끌어 넣으세요. 먼저 배경 장면을 추가하세요.");
     return;
   }
   let c = clips[index],
     start = Math.max(0, absoluteTime - offset(index)),
-    // v195: 모든 옵션은 놓은 위치부터 이미지 끝까지, 이후 개별 조절 가능.
-    end = length(c); // v195: 모든 옵션은 기본적으로 놓은 위치부터 이미지 끝까지
+    // Stickers start at ten seconds; all option segments remain independently resizable.
+    end = tab === "스티커" ? Math.min(length(c), start + 10) : length(c);
+  if (!inside) {
+    const duration = Math.min(length(c), tab === "스티커" ? 10 : tab === "전환" ? 1 : 5);
+    start = Math.max(0, Math.min(length(c) - duration, start));
+    end = start + duration;
+  }
   if (end - start < 0.05) {
     status("장면 끝보다 조금 앞에 옵션을 놓으세요.");
     return;
@@ -17535,7 +17561,7 @@ async function applyCardToImage56(tab, item, fallback) {
   let at = time >= offset(index) && time < offset(index) + length(c) - 0.05 ? time : offset(index);
   await dropPaletteOption(tab, item, at);
   let chosenItem = findTimelineOption();
-  if (chosenItem && tab !== "전환") {
+  if (chosenItem && tab !== "전환" && tab !== "스티커") {
     let r = optionRange(c, chosenItem.key, chosenItem.layer);
     writeTiming(c, chosenItem.key, chosenItem.layer, r.start, length(c));
     render();
@@ -30170,6 +30196,12 @@ function rnd133(i) {
   return x - Math.floor(x);
 }
 function paintFrame133(g, W, H, t, d) {
+  if (d && suppliedDesigns229?.MOOD_KINDS228.has(d.kind)) {
+    g.save();
+    try { suppliedDesigns229.MOOD228[d.kind.slice(0, -3)](g, W, H, t, d, Math.min(W, H) / 720); }
+    finally { g.restore(); }
+    return;
+  }
   let u = Math.min(W, H) / 720,
     th = (d.width || 24) * u,
     c1 = d.color || "#ffffff",
@@ -36308,7 +36340,7 @@ function applyWizardOptions225(scenes) {
     const key=paletteKeys[entry.tab];if(!key)continue;
     if(key==="transition"){if(index<scenes.length-1)c.transition=entry.preset.transition;continue;}
     const preset=structuredClone(entry.preset);
-    c.optionClips=[...(c.optionClips||[]),{id:crypto.randomUUID(),key,name:entry.name,start:0,end:length(c),preset,timelineSide215:"above"}];
+    c.optionClips=[...(c.optionClips||[]),{id:crypto.randomUUID(),key,name:entry.name,start:0,end:key==="sticker"?Math.min(10,length(c)):length(c),preset,timelineSide215:"above"}];
     rememberOptionOrder56(c);
   }
 }
@@ -43262,33 +43294,7 @@ photoBackgroundsButton.textContent = "▧ 배경 사진 " + ART_BACKGROUNDS_DATA
   },true);
   const hint197=document.createElement('span');hint197.className='muted';hint197.textContent='클릭 선택 · Ctrl+클릭 / 빈 곳 드래그로 여러 개 선택 · Delete 삭제 · Ctrl+Z 되돌리기';hint197.style.fontSize='11px';timelineLegend.after(hint197);
 }
-// v197 · 라이브러리에서 이미지 사이/빈 구간으로 바로 옵션 드롭.
-{
-  const insertBase197=insertOptionClip;
-  insertOptionClip=async function(tab,item,absoluteTime){
-    if(['에셋','템플릿'].includes(tab)||!clips.length||busy||projectOperation)return insertBase197.apply(this,arguments);
-    const at=Math.max(0,Number(absoluteTime)||0);
-    let owner=clips.findIndex((c,i)=>at>=offset(i)&&at<offset(i)+length(c));
-    if(owner<0){
-      let distance=Infinity;
-      clips.forEach((c,i)=>{const d=Math.min(Math.abs(at-offset(i)),Math.abs(at-offset(i)-length(c)));if(d<distance){distance=d;owner=i}});
-    }
-    const c=clips[owner],origin=offset(owner),seed=origin+Math.min(Math.max(0,at-origin),Math.max(0,length(c)-.1));
-    const before=new Set(timingItems(c).map(optionItemIdentity));
-    const result=await insertBase197.call(this,tab,item,seed);
-    const added=timingItems(c).filter(i=>!before.has(optionItemIdentity(i)));
-    for(const addedItem of added){
-      const field={option:'optionClips',text:'textLayers',caption:'captions',overlay:'overlays'}[addedItem.key];
-      if(!field||!addedItem.layer)continue;
-      const inside=at>=origin&&at<origin+length(c);
-      const end=inside?length(c):at-origin+(tab==='전환'?1:5);
-      c[field]=c[field].map(o=>o.id===addedItem.layer.id?{...o,free197:!inside,start:at-origin,end}:o);
-    }
-    render();syncInspectorText();await go(at+.001);draw();
-    status('옵션을 '+at.toFixed(2)+'초에 놓았습니다. 이미지 사이·빈 구간에서도 가운데 이동 / 양끝 길이 조절이 가능합니다.');
-    return result;
-  };
-}
+// 빈 구간 드롭의 가장 가까운 장면 선택도 insertOptionClip 본문에서 처리합니다.
 
 // v198 · 미디어의 무료 사진·영상 찾기 칸 제거.
 pexelsPanel142.remove();
@@ -43580,3 +43586,1983 @@ function previewBoundary205(c,item) {
   };
   renderSoundEvents();
 }
+
+
+// Designs supplied in ClipMood-v228(2).zip; registered without wrapping existing functions.
+
+
+// v228 · 응원 스티커 · 우리 명절(휘날리는 태극기) · 트로트 방송 글자 · 분위기 효과 · 무대 테두리 · 노래방 색 조합
+// 모두 클립무드가 코드로 직접 그린 그림입니다 (외부 그림 없음).
+suppliedDesigns229 = (function () {
+  const TAU = Math.PI * 2;
+  const h228 = (n) => {
+    let s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+    return s - Math.floor(s);
+  };
+  const rr228 = (x, X, Y, w, h, r) => {
+    x.beginPath();
+    if (x.roundRect) x.roundRect(X, Y, w, h, r);
+    else x.rect(X, Y, w, h);
+  };
+  const heart228 = (x, cx, cy, s) => {
+    x.beginPath();
+    x.moveTo(cx, cy + s * 0.9);
+    x.bezierCurveTo(cx - s * 1.6, cy - s * 0.1, cx - s * 0.8, cy - s * 1.3, cx, cy - s * 0.45);
+    x.bezierCurveTo(cx + s * 0.8, cy - s * 1.3, cx + s * 1.6, cy - s * 0.1, cx, cy + s * 0.9);
+    x.closePath();
+  };
+  const star228 = (x, cx, cy, r, n = 5, ins = 0.45, rot = -Math.PI / 2) => {
+    x.beginPath();
+    for (let i = 0; i < n * 2; i++) {
+      let a = rot + (i * Math.PI) / n,
+        q = i % 2 ? r * ins : r;
+      x.lineTo(cx + Math.cos(a) * q, cy + Math.sin(a) * q);
+    }
+    x.closePath();
+  };
+  const sparkle228 = (x, cx, cy, r, t, color = "#fff7c2") => {
+    let k = 0.5 + 0.5 * Math.sin(t);
+    if (k < 0.05) return;
+    x.save();
+    x.globalAlpha *= k;
+    x.fillStyle = color;
+    x.shadowColor = color;
+    x.shadowBlur = r * 1.5;
+    star228(x, cx, cy, r * (0.6 + k * 0.4), 4, 0.28, 0);
+    x.fill();
+    x.restore();
+  };
+  const goldGrad228 = (x, y0, y1, x0 = 0, x1 = 0) => {
+    let g = x.createLinearGradient(x0, y0, x1, y1);
+    [["#fff6c4", 0], ["#ffd65a", 0.3], ["#c88a1c", 0.55], ["#ffe48a", 0.75], ["#8a560e", 1]].forEach(([c, p]) => g.addColorStop(p, c));
+    return g;
+  };
+  const font228 = (px, w = 900, fam) => `${w} ${px}px ${fam || '"Pretendard","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif'}`;
+  // 디자인 상자(w×h)를 ±(w·50) × ±(h·50) 좌표로 그리게 맞춰 줍니다.
+  function boxed228(x, d, W, H, fn) {
+    let bw = (d.w || 2) * 100,
+      bh = (d.h || 2) * 100,
+      s = Math.min(W / bw, H / bh);
+    x.save();
+    x.scale(s, s);
+    x.lineJoin = "round";
+    x.lineCap = "round";
+    try {
+      fn(bw / 2, bh / 2);
+    } finally {
+      x.restore();
+    }
+  }
+
+  // ───────────── 움직이는 응원 ─────────────
+  const CHEER228 = {
+    glowstick(x, d, t) {
+      let cols = d.colors || [d.color, d.color2 || d.color];
+      for (let i = 0; i < 2; i++) {
+        let side = i ? 1 : -1,
+          a = side * (0.32 + 0.38 * Math.sin(t * 6 + i * Math.PI)),
+          col = d.rainbow ? `hsl(${(t * 140 + i * 170) % 360},100%,62%)` : cols[i];
+        x.save();
+        x.translate(side * 22, 78);
+        x.rotate(a);
+        x.fillStyle = "#2b2f3d";
+        rr228(x, -11, -6, 22, 40, 7);
+        x.fill();
+        x.fillStyle = "#575d73";
+        x.fillRect(-11, 4, 22, 5);
+        x.globalCompositeOperation = "lighter";
+        x.shadowColor = col;
+        x.shadowBlur = 34;
+        x.fillStyle = col;
+        rr228(x, -10, -140, 20, 136, 10);
+        x.fill();
+        x.shadowBlur = 0;
+        let g = x.createLinearGradient(-10, 0, 10, 0);
+        g.addColorStop(0, "rgba(255,255,255,0)");
+        g.addColorStop(0.45, "rgba(255,255,255,.85)");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        x.fillStyle = g;
+        rr228(x, -5, -134, 10, 124, 5);
+        x.fill();
+        x.restore();
+      }
+      for (let i = 0; i < 5; i++) sparkle228(x, -80 + h228(i) * 160, -90 + h228(i + 9) * 110, 7, t * 5 + i * 1.7, "#ffffff");
+    },
+    clap(x, d, t) {
+      let p = (t * 2.4) % 1,
+        gap = 6 + 46 * Math.abs(Math.sin(p * Math.PI)),
+        hit = p < 0.12 || p > 0.9;
+      const hand = (side) => {
+        x.save();
+        x.translate(side * (gap + 30), 10);
+        x.scale(side, 1);
+        x.rotate(-0.18);
+        x.fillStyle = d.skin || "#ffd3ad";
+        x.strokeStyle = "#c98a5a";
+        x.lineWidth = 4;
+        rr228(x, -30, -40, 56, 90, 22);
+        x.fill();
+        x.stroke();
+        for (let f = 0; f < 4; f++) {
+          x.beginPath();
+          x.ellipse(-20 + f * 13, -46 + Math.abs(f - 1.5) * 4, 7.5, 16, 0, 0, TAU);
+          x.fill();
+          x.stroke();
+        }
+        x.beginPath();
+        x.ellipse(-30, 8, 11, 24, -0.5, 0, TAU);
+        x.fill();
+        x.stroke();
+        x.fillStyle = d.color || "#ff4f8b";
+        rr228(x, -32, 46, 60, 22, 6);
+        x.fill();
+        x.restore();
+      };
+      hand(-1);
+      hand(1);
+      if (hit) {
+        x.save();
+        x.strokeStyle = "#ffd23f";
+        x.lineWidth = 6;
+        for (let i = 0; i < 8; i++) {
+          let a = (i / 8) * TAU;
+          x.beginPath();
+          x.moveTo(Math.cos(a) * 62, Math.sin(a) * 62 - 30);
+          x.lineTo(Math.cos(a) * 84, Math.sin(a) * 84 - 30);
+          x.stroke();
+        }
+        x.restore();
+      }
+      x.save();
+      x.font = font228(hit ? 46 : 38);
+      x.lineWidth = 8;
+      x.strokeStyle = "#7a1030";
+      x.fillStyle = "#fff36b";
+      x.strokeText(d.text || "짝짝짝!", 0, -84);
+      x.fillText(d.text || "짝짝짝!", 0, -84);
+      x.restore();
+    },
+    hearts(x, d, t) {
+      let cols = d.colors || ["#ff4f8b", "#ff2d55", "#ff8fb8", "#ffd1e1"];
+      for (let i = 0; i < 12; i++) {
+        let ph = (t * 0.34 + h228(i)) % 1,
+          y = 92 - ph * 190,
+          xx = (h228(i + 7) - 0.5) * 160 + Math.sin(t * 2.2 + i) * 14,
+          s = 9 + h228(i + 3) * 14;
+        x.save();
+        x.globalAlpha *= Math.sin(ph * Math.PI);
+        x.fillStyle = cols[i % cols.length];
+        x.shadowColor = cols[i % cols.length];
+        x.shadowBlur = 12;
+        x.translate(xx, y);
+        x.rotate(Math.sin(t * 3 + i) * 0.25);
+        heart228(x, 0, 0, s);
+        x.fill();
+        x.restore();
+      }
+    },
+    fireworks(x, d, t) {
+      let cols = d.colors || ["#ffd23f", "#ff4f8b", "#4fd1ff", "#7dff6b", "#c58bff"];
+      x.globalCompositeOperation = "lighter";
+      for (let b = 0; b < 3; b++) {
+        let per = 1.7,
+          tt = t + b * 0.57,
+          cyc = Math.floor(tt / per),
+          q = (tt % per) / per,
+          cx = (h228(cyc * 3 + b) - 0.5) * 120,
+          cy = -30 + (h228(cyc * 5 + b + 1) - 0.5) * 80,
+          col = cols[(cyc + b) % cols.length];
+        if (q < 0.18) {
+          let k = q / 0.18;
+          x.fillStyle = "#fff2c0";
+          x.beginPath();
+          x.arc(cx, 95 - (95 - cy) * k, 3.5, 0, TAU);
+          x.fill();
+          continue;
+        }
+        let k = (q - 0.18) / 0.82,
+          r = (1 - Math.pow(1 - k, 3)) * 70,
+          a = 1 - k;
+        x.globalAlpha = a;
+        x.fillStyle = col;
+        x.strokeStyle = col;
+        x.lineWidth = 2.4;
+        for (let i = 0; i < 18; i++) {
+          let ang = (i / 18) * TAU + cyc,
+            px = cx + Math.cos(ang) * r,
+            py = cy + Math.sin(ang) * r + k * k * 18;
+          x.beginPath();
+          x.moveTo(cx + Math.cos(ang) * r * 0.6, cy + Math.sin(ang) * r * 0.6 + k * k * 10);
+          x.lineTo(px, py);
+          x.stroke();
+          x.beginPath();
+          x.arc(px, py, 3.2, 0, TAU);
+          x.fill();
+        }
+        if (k < 0.25) {
+          x.globalAlpha = 1 - k * 4;
+          x.fillStyle = "#ffffff";
+          x.beginPath();
+          x.arc(cx, cy, 14, 0, TAU);
+          x.fill();
+        }
+      }
+      x.globalAlpha = 1;
+      x.globalCompositeOperation = "source-over";
+    },
+    popper(x, d, t) {
+      let per = 2,
+        q = (t % per) / per,
+        rot = 0.62,
+        cols = ["#ff4f8b", "#ffd23f", "#4fd1ff", "#7dff6b", "#c58bff", "#ff8a3d"],
+        px0 = -60,
+        py0 = 78;
+      x.save();
+      x.translate(px0, py0);
+      x.rotate(rot + (q < 0.1 ? -0.12 * Math.sin((q / 0.1) * Math.PI) : 0));
+      let g = x.createLinearGradient(-26, 0, 26, 0);
+      g.addColorStop(0, "#ff4f8b");
+      g.addColorStop(1, "#b0186a");
+      x.fillStyle = g;
+      x.beginPath();
+      x.moveTo(0, 20);
+      x.lineTo(-24, -62);
+      x.lineTo(24, -62);
+      x.closePath();
+      x.fill();
+      x.strokeStyle = "#ffd23f";
+      x.lineWidth = 5;
+      for (let k = 0; k < 3; k++) {
+        x.beginPath();
+        x.moveTo(-19 + k * 6, -44 + k * 22);
+        x.lineTo(19 - k * 6, -48 + k * 22);
+        x.stroke();
+      }
+      x.restore();
+      let mx = px0 + Math.sin(rot) * 62,
+        my = py0 - Math.cos(rot) * 62,
+        tt = q * per;
+      for (let i = 0; i < 30; i++) {
+        let ang = -Math.PI / 2 + rot + (h228(i) - 0.5) * 1.3,
+          sp = 70 + h228(i + 4) * 90,
+          px = mx + Math.cos(ang) * sp * Math.min(tt, 1.2) + Math.sin(t * 3 + i) * 6,
+          py = my + Math.sin(ang) * sp * Math.min(tt, 1.2) + 40 * tt * tt;
+        x.save();
+        x.globalAlpha *= Math.max(0, Math.min(1, (1 - q) * 1.6));
+        x.translate(px, py);
+        x.rotate(t * 6 + i);
+        x.fillStyle = cols[i % cols.length];
+        if (i % 3) x.fillRect(-6, -3, 12, 6);
+        else {
+          x.beginPath();
+          x.arc(0, 0, 4.5, 0, TAU);
+          x.fill();
+        }
+        x.restore();
+      }
+      if (d.text) {
+        x.font = font228(34);
+        x.lineWidth = 7;
+        x.strokeStyle = "#5a1040";
+        x.fillStyle = "#ffffff";
+        x.strokeText(d.text, 20, 80);
+        x.fillText(d.text, 20, 80);
+      }
+    },
+    bubble(x, d, t) {
+      let bw = (d.w || 2.4) * 100 - 30,
+        bh = (d.h || 1.4) * 100 - 50,
+        sc = 1 + Math.sin(t * 6) * 0.05;
+      x.save();
+      x.scale(sc, sc);
+      x.rotate(Math.sin(t * 3) * 0.04);
+      x.fillStyle = d.color || "#ff2d55";
+      x.strokeStyle = "#ffffff";
+      x.lineWidth = 7;
+      rr228(x, -bw / 2, -bh / 2 - 10, bw, bh, bh / 2.4);
+      x.fill();
+      x.beginPath();
+      x.moveTo(-bw * 0.18, bh / 2 - 14);
+      x.lineTo(-bw * 0.3, bh / 2 + 22);
+      x.lineTo(-bw * 0.02, bh / 2 - 14);
+      x.closePath();
+      x.fill();
+      rr228(x, -bw / 2, -bh / 2 - 10, bw, bh, bh / 2.4);
+      x.stroke();
+      x.fillStyle = d.color || "#ff2d55";
+      x.fillRect(-bw * 0.2, bh / 2 - 20, bw * 0.2, 10);
+      let fs = Math.min(bh * 0.6, (bw * 0.86) / Math.max(2, [...d.text].length) * 1.35);
+      x.font = font228(fs);
+      x.fillStyle = d.ink || "#ffffff";
+      x.shadowColor = "rgba(0,0,0,.35)";
+      x.shadowOffsetY = 3;
+      x.fillText(d.text, 0, -8, bw * 0.9);
+      x.restore();
+      for (let i = 0; i < 4; i++) sparkle228(x, (i % 2 ? 1 : -1) * (bw / 2 + 4), -bh / 2 + (i > 1 ? bh - 10 : -16), 10, t * 6 + i * 2, "#fff36b");
+    },
+    thumb(x, d, t) {
+      x.save();
+      x.translate(0, 18 + Math.abs(Math.sin(t * 4)) * -12);
+      x.rotate(Math.sin(t * 4) * 0.08);
+      x.fillStyle = d.skin || "#ffd3ad";
+      x.strokeStyle = "#c98a5a";
+      x.lineWidth = 5;
+      x.save();
+      x.translate(-14, -30);
+      x.rotate(-0.12);
+      rr228(x, -15, -60, 30, 74, 15);
+      x.fill();
+      x.stroke();
+      x.restore();
+      rr228(x, -44, -24, 88, 80, 22);
+      x.fill();
+      x.stroke();
+      x.beginPath();
+      for (let k = 0; k < 3; k++) {
+        x.moveTo(14, -2 + k * 20);
+        x.lineTo(42, -2 + k * 20);
+      }
+      x.stroke();
+      x.fillStyle = d.color || "#2f7bff";
+      rr228(x, -48, 54, 96, 30, 8);
+      x.fill();
+      x.restore();
+      for (let i = 0; i < 5; i++) sparkle228(x, -88 + h228(i) * 176, -88 + h228(i + 3) * 120, 9, t * 5 + i * 1.3, "#ffe14d");
+      if (d.text) {
+        x.font = font228(30);
+        x.lineWidth = 7;
+        x.strokeStyle = "#0d2d6e";
+        x.fillStyle = "#ffe14d";
+        x.strokeText(d.text, 58, -70);
+        x.fillText(d.text, 58, -70);
+      }
+    },
+    wreath(x, d, t) {
+      x.save();
+      x.rotate(Math.sin(t * 1.5) * 0.03);
+      x.strokeStyle = "#8a5a2b";
+      x.lineWidth = 6;
+      x.beginPath();
+      x.moveTo(-12, 20);
+      x.lineTo(-48, 100);
+      x.moveTo(12, 20);
+      x.lineTo(48, 100);
+      x.moveTo(0, 20);
+      x.lineTo(0, 100);
+      x.stroke();
+      let cols = d.colors || ["#ff6fa5", "#ffffff", "#ffd23f", "#ff3b5c"];
+      for (let i = 0; i < 22; i++) {
+        let a = (i / 22) * TAU;
+        x.fillStyle = "#3f9b4a";
+        x.beginPath();
+        x.ellipse(Math.cos(a + 0.12) * 72, -26 + Math.sin(a + 0.12) * 72, 15, 7, a, 0, TAU);
+        x.fill();
+      }
+      for (let i = 0; i < 18; i++) {
+        let a = (i / 18) * TAU + Math.sin(t * 2) * 0.02,
+          fx = Math.cos(a) * 62,
+          fy = -26 + Math.sin(a) * 62,
+          c = cols[i % cols.length],
+          r = 12 + (i % 3) * 2;
+        x.fillStyle = c;
+        for (let p = 0; p < 5; p++) {
+          let pa = (p / 5) * TAU + i;
+          x.beginPath();
+          x.arc(fx + Math.cos(pa) * r * 0.55, fy + Math.sin(pa) * r * 0.55, r * 0.55, 0, TAU);
+          x.fill();
+        }
+        x.fillStyle = c === "#ffd23f" ? "#e07b00" : "#ffe14d";
+        x.beginPath();
+        x.arc(fx, fy, r * 0.32, 0, TAU);
+        x.fill();
+      }
+      x.fillStyle = "#c8102e";
+      x.beginPath();
+      x.moveTo(-60, 30);
+      x.lineTo(60, 30);
+      x.lineTo(52, 52);
+      x.lineTo(60, 74);
+      x.lineTo(-60, 74);
+      x.lineTo(-52, 52);
+      x.closePath();
+      x.fill();
+      x.font = font228(22, 900, "serif");
+      x.fillStyle = "#ffe48a";
+      x.fillText(d.text || "축하합니다", 0, 53, 104);
+      x.restore();
+    },
+    trophy(x, d, t) {
+      x.save();
+      x.translate(0, Math.sin(t * 2.4) * 5);
+      x.save();
+      x.beginPath();
+      x.moveTo(-56, -78);
+      x.lineTo(56, -78);
+      x.bezierCurveTo(56, -10, 30, 16, 10, 22);
+      x.lineTo(10, 46);
+      x.lineTo(34, 60);
+      x.lineTo(34, 84);
+      x.lineTo(-34, 84);
+      x.lineTo(-34, 60);
+      x.lineTo(-10, 46);
+      x.lineTo(-10, 22);
+      x.bezierCurveTo(-30, 16, -56, -10, -56, -78);
+      x.closePath();
+      x.fillStyle = goldGrad228(x, -78, 84, -56, 56);
+      x.shadowColor = "rgba(255,190,60,.7)";
+      x.shadowBlur = 22;
+      x.fill();
+      x.shadowBlur = 0;
+      x.clip();
+      let sp = ((t * 0.7) % 1.6) - 0.3,
+        g = x.createLinearGradient(-80 + sp * 160, -80, -40 + sp * 160, 80);
+      g.addColorStop(0, "rgba(255,255,255,0)");
+      g.addColorStop(0.5, "rgba(255,255,255,.75)");
+      g.addColorStop(1, "rgba(255,255,255,0)");
+      x.fillStyle = g;
+      x.fillRect(-80, -90, 160, 180);
+      x.restore();
+      x.strokeStyle = "#e0a52a";
+      x.lineWidth = 10;
+      x.beginPath();
+      x.arc(-58, -48, 24, Math.PI * 0.5, Math.PI * 1.5);
+      x.moveTo(58, -72);
+      x.arc(58, -48, 24, -Math.PI * 0.5, Math.PI * 0.5);
+      x.stroke();
+      x.fillStyle = "#8a1020";
+      rr228(x, -44, 64, 88, 16, 4);
+      x.fill();
+      x.fillStyle = "#fff6c4";
+      star228(x, 0, -36, 20);
+      x.fill();
+      x.font = font228(11, 800);
+      x.fillStyle = "#ffe48a";
+      x.fillText(d.text || "1위", 0, 72.5);
+      x.restore();
+      for (let i = 0; i < 6; i++) sparkle228(x, -90 + h228(i) * 180, -95 + h228(i + 5) * 150, 10, t * 4 + i * 1.6);
+    },
+    crown(x, d, t) {
+      x.save();
+      x.translate(0, Math.sin(t * 2.6) * 6);
+      x.rotate(Math.sin(t * 1.3) * 0.06);
+      x.beginPath();
+      x.moveTo(-80, 40);
+      x.lineTo(-90, -40);
+      x.lineTo(-45, 0);
+      x.lineTo(0, -60);
+      x.lineTo(45, 0);
+      x.lineTo(90, -40);
+      x.lineTo(80, 40);
+      x.closePath();
+      x.fillStyle = goldGrad228(x, -60, 50);
+      x.shadowColor = "rgba(255,190,60,.75)";
+      x.shadowBlur = 24;
+      x.fill();
+      x.shadowBlur = 0;
+      x.fillStyle = goldGrad228(x, 36, 64);
+      rr228(x, -84, 36, 168, 26, 6);
+      x.fill();
+      [["#ff2d55", -45], ["#2f7bff", 0], ["#3fcf6a", 45]].forEach(([c, px]) => {
+        x.fillStyle = c;
+        x.beginPath();
+        x.arc(px, 49, 8, 0, TAU);
+        x.fill();
+        x.fillStyle = "rgba(255,255,255,.7)";
+        x.beginPath();
+        x.arc(px - 2.5, 46.5, 2.6, 0, TAU);
+        x.fill();
+      });
+      [[-90, -40], [0, -60], [90, -40]].forEach(([px, py]) => {
+        x.fillStyle = "#fff1c0";
+        x.beginPath();
+        x.arc(px, py - 6, 9, 0, TAU);
+        x.fill();
+      });
+      x.restore();
+      for (let i = 0; i < 6; i++) sparkle228(x, -95 + h228(i + 2) * 190, -90 + h228(i + 8) * 150, 10, t * 4 + i * 1.4);
+    },
+    mic(x, d, t) {
+      for (let i = 0; i < 5; i++) {
+        let ph = (t * 0.45 + i / 5) % 1;
+        x.save();
+        x.globalAlpha *= Math.sin(ph * Math.PI);
+        x.font = font228(26 + (i % 2) * 8, 900, "serif");
+        x.fillStyle = ["#ffd23f", "#ff6fa5", "#7fd8ff"][i % 3];
+        x.fillText(i % 2 ? "♫" : "♪", 30 + ph * 60 + Math.sin(t * 3 + i) * 10, -30 - ph * 80);
+        x.restore();
+      }
+      x.save();
+      x.translate(-20, 10);
+      x.rotate(-0.5 + Math.sin(t * 2) * 0.06);
+      x.fillStyle = goldGrad228(x, 0, 0, -12, 12);
+      x.beginPath();
+      x.moveTo(-14, 0);
+      x.lineTo(14, 0);
+      x.lineTo(9, 96);
+      x.lineTo(-9, 96);
+      x.closePath();
+      x.fill();
+      x.fillStyle = "#8a1020";
+      x.fillRect(-14, 6, 28, 8);
+      let g = x.createRadialGradient(-10, -36, 4, 0, -26, 34);
+      g.addColorStop(0, "#fff7d0");
+      g.addColorStop(0.5, "#e2b34a");
+      g.addColorStop(1, "#7a5010");
+      x.fillStyle = g;
+      x.shadowColor = "rgba(255,200,80,.8)";
+      x.shadowBlur = 20;
+      x.beginPath();
+      x.arc(0, -26, 32, 0, TAU);
+      x.fill();
+      x.shadowBlur = 0;
+      x.strokeStyle = "rgba(90,60,10,.45)";
+      x.lineWidth = 1.6;
+      x.save();
+      x.beginPath();
+      x.arc(0, -26, 31, 0, TAU);
+      x.clip();
+      for (let k = -40; k <= 40; k += 8) {
+        x.beginPath();
+        x.moveTo(k, -60);
+        x.lineTo(k + 30, 10);
+        x.moveTo(k + 30, -60);
+        x.lineTo(k, 10);
+        x.stroke();
+      }
+      x.restore();
+      x.restore();
+    },
+  };
+  socialPainters125.cheer228 = function (x, d, W, H, t) {
+    let f = CHEER228[d.kind];
+    if (f) boxed228(x, d, W, H, () => f(x, d, t));
+  };
+
+  // ───────────── 우리 명절 · 행사 (태극기) ─────────────
+  let flag228 = null;
+  function taegukgi228() {
+    if (flag228) return flag228;
+    let c = document.createElement("canvas");
+    c.width = 600;
+    c.height = 400;
+    let g = c.getContext("2d"),
+      D = 200,
+      R = 100,
+      RED = "#cd2e3a",
+      BLUE = "#0047a0";
+    g.fillStyle = "#ffffff";
+    g.fillRect(0, 0, 600, 400);
+    g.save();
+    g.translate(300, 200);
+    g.save();
+    g.rotate(Math.atan2(2, 3));
+    g.fillStyle = RED;
+    g.beginPath();
+    g.arc(0, 0, R, Math.PI, 0);
+    g.fill();
+    g.fillStyle = BLUE;
+    g.beginPath();
+    g.arc(0, 0, R, 0, Math.PI);
+    g.fill();
+    g.fillStyle = RED;
+    g.beginPath();
+    g.arc(-R / 2, 0, R / 2, 0, TAU);
+    g.fill();
+    g.fillStyle = BLUE;
+    g.beginPath();
+    g.arc(R / 2, 0, R / 2, 0, TAU);
+    g.fill();
+    g.restore();
+    // 4괘: 건(좌상) 감(우상) 곤(우하) 리(좌하)
+    let L = D / 2,
+      T = D / 12,
+      gap = D / 24,
+      dist = (D * 11) / 12,
+      len = Math.hypot(3, 2);
+    g.fillStyle = "#000000";
+    for (let [ux, uy, bars] of [
+      [-3, -2, [1, 1, 1]],
+      [3, -2, [0, 1, 0]],
+      [3, 2, [0, 0, 0]],
+      [-3, 2, [1, 0, 1]],
+    ]) {
+      g.save();
+      g.translate((ux / len) * dist, (uy / len) * dist);
+      g.rotate(Math.atan2(uy, ux) + Math.PI / 2);
+      bars.forEach((solid, i) => {
+        let yo = (i - 1) * (T + gap) - T / 2;
+        if (solid) g.fillRect(-L / 2, yo, L, T);
+        else {
+          g.fillRect(-L / 2, yo, L / 2 - gap / 2, T);
+          g.fillRect(gap / 2, yo, L / 2 - gap / 2, T);
+        }
+      });
+      g.restore();
+    }
+    g.restore();
+    return (flag228 = c);
+  }
+  // 깃대 쪽(왼쪽)은 고정, 끝으로 갈수록 크게 펄럭이는 물결
+  let waveBuf228 = null;
+  function wavingFlag228(x, X, Y, w, h, t, amp = 0.09) {
+    let img = taegukgi228(),
+      m = x.getTransform ? x.getTransform() : { a: 1, d: 1 },
+      sc = Math.max(0.5, Math.min(4, Math.hypot(m.a, m.b || 0))),
+      bw = Math.max(8, Math.ceil(w * sc)),
+      bh = Math.max(8, Math.ceil(h * (1 + amp * 2.4) * sc)),
+      pad = (bh - h * sc) / 2;
+    if (!waveBuf228) waveBuf228 = document.createElement("canvas");
+    let c = waveBuf228;
+    if (c.width < bw || c.height < bh) (c.width = Math.max(c.width, bw)), (c.height = Math.max(c.height, bh));
+    let g = c.getContext("2d");
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalCompositeOperation = "source-over";
+    g.clearRect(0, 0, c.width, c.height);
+    let n = Math.max(40, Math.min(220, Math.round(bw / 2))),
+      sw = bw / n,
+      iw = img.width / n,
+      shade = g.createLinearGradient(0, 0, bw, 0);
+    for (let i = 0; i < n; i++) {
+      let u = i / n,
+        ph = u * Math.PI * 2.4 - t * 4.2,
+        k = Math.pow(u, 0.85),
+        off = Math.sin(ph) * amp * h * sc * k,
+        squash = 1 - 0.05 * k * (1 + Math.cos(ph)) * 0.5,
+        hh = h * sc * squash,
+        yy = pad + off + (h * sc - hh) / 2 + k * h * sc * 0.04;
+      g.drawImage(img, i * iw, 0, iw, img.height, Math.floor(i * sw), yy, Math.ceil(sw) + 1, hh);
+    }
+    for (let i = 0; i <= 24; i++) {
+      let u = i / 24,
+        ph = u * Math.PI * 2.4 - t * 4.2,
+        sl = Math.cos(ph) * Math.pow(u, 0.85);
+      shade.addColorStop(u, sl > 0 ? `rgba(255,255,255,${sl * 0.18})` : `rgba(0,10,40,${-sl * 0.26})`);
+    }
+    g.globalCompositeOperation = "source-atop";
+    g.fillStyle = shade;
+    g.fillRect(0, 0, bw, bh);
+    g.globalCompositeOperation = "source-over";
+    x.drawImage(c, 0, 0, bw, bh, X, Y - pad / sc, w, bh / sc);
+  }
+  function pole228(x, px, top, bottom) {
+    let g = x.createLinearGradient(px - 5, 0, px + 5, 0);
+    g.addColorStop(0, "#7a5a2a");
+    g.addColorStop(0.5, "#e8c87a");
+    g.addColorStop(1, "#6a4a1a");
+    x.fillStyle = g;
+    x.fillRect(px - 4.5, top, 9, bottom - top);
+    let b = x.createRadialGradient(px - 3, top - 9, 2, px, top - 6, 11);
+    b.addColorStop(0, "#fff4c8");
+    b.addColorStop(1, "#b07a1c");
+    x.fillStyle = b;
+    x.beginPath();
+    x.arc(px, top - 6, 10, 0, TAU);
+    x.fill();
+  }
+  const ink228 = (x, text, px, py, size, fill, stroke, w = 900, fam) => {
+    x.font = font228(size, w, fam);
+    if (stroke) {
+      x.lineWidth = size * 0.2;
+      x.strokeStyle = stroke;
+      x.strokeText(text, px, py);
+    }
+    x.fillStyle = fill;
+    x.fillText(text, px, py);
+  };
+  const KR228 = {
+    flagPole(x, d, t) {
+      pole228(x, -104, -98, 112);
+      wavingFlag228(x, -100, -92, 204, 136, t, 0.085);
+    },
+    flag(x, d, t) {
+      x.save();
+      x.shadowColor = "rgba(0,0,0,.25)";
+      x.shadowBlur = 10;
+      x.shadowOffsetY = 4;
+      wavingFlag228(x, -114, -76, 228, 152, t, 0.07);
+      x.restore();
+    },
+    handFlags(x, d, t) {
+      for (let i = 0; i < 2; i++) {
+        let side = i ? 1 : -1;
+        x.save();
+        x.translate(side * 14, 92);
+        x.rotate(side * (0.35 + 0.22 * Math.sin(t * 5 + i * Math.PI)));
+        x.fillStyle = "#c9a35a";
+        x.fillRect(-3, -150, 6, 150);
+        x.translate(side < 0 ? -3 - 96 : 3, -150);
+        if (side < 0) {
+          x.translate(96, 0);
+          x.scale(-1, 1);
+        }
+        wavingFlag228(x, 0, 0, 96, 64, t * 1.4 + i, 0.08);
+        x.restore();
+      }
+      if (d.text) ink228(x, d.text, 0, 82, 26, "#ffffff", "#0047a0");
+    },
+    pouch(x, d, t) {
+      x.save();
+      x.translate(0, -84);
+      x.rotate(Math.sin(t * 2.2) * 0.12);
+      let c = d.color || "#d91a3a",
+        c2 = d.color2 || "#8a0a20";
+      x.strokeStyle = "#ffcf4a";
+      x.lineWidth = 5;
+      x.beginPath();
+      x.moveTo(-6, 0);
+      x.quadraticCurveTo(-34, 4, -40, 30);
+      x.moveTo(6, 0);
+      x.quadraticCurveTo(34, 4, 40, 30);
+      x.stroke();
+      let g = x.createRadialGradient(-20, 80, 10, 0, 100, 90);
+      g.addColorStop(0, c);
+      g.addColorStop(1, c2);
+      x.fillStyle = g;
+      x.beginPath();
+      x.moveTo(-30, 42);
+      x.bezierCurveTo(-100, 70, -96, 176, 0, 176);
+      x.bezierCurveTo(96, 176, 100, 70, 30, 42);
+      x.closePath();
+      x.fill();
+      x.fillStyle = c;
+      x.beginPath();
+      x.moveTo(-34, 44);
+      for (let k = 0; k <= 8; k++) x.lineTo(-34 + k * 8.5, k % 2 ? 22 : 34);
+      x.lineTo(34, 44);
+      x.closePath();
+      x.fill();
+      x.fillStyle = "#ffcf4a";
+      rr228(x, -36, 38, 72, 12, 6);
+      x.fill();
+      x.beginPath();
+      x.arc(0, 108, 30, 0, TAU);
+      x.fill();
+      x.fillStyle = c2;
+      x.beginPath();
+      x.arc(0, 108, 25, 0, TAU);
+      x.fill();
+      ink228(x, d.text || "福", 0, 110, 32, "#ffe48a", null, 900, "serif");
+      x.strokeStyle = "rgba(255,207,74,.6)";
+      x.lineWidth = 3;
+      x.beginPath();
+      x.moveTo(-72, 120);
+      x.quadraticCurveTo(0, 150, 72, 120);
+      x.stroke();
+      x.restore();
+      for (let i = 0; i < 4; i++) sparkle228(x, -86 + h228(i + 1) * 172, -70 + h228(i + 6) * 150, 9, t * 4 + i * 1.7);
+    },
+    moon(x, d, t) {
+      let pulse = 1 + Math.sin(t * 1.6) * 0.04;
+      let halo = x.createRadialGradient(0, 0, 50, 0, 0, 100 * pulse);
+      halo.addColorStop(0, "rgba(255,236,160,.55)");
+      halo.addColorStop(1, "rgba(255,236,160,0)");
+      x.fillStyle = halo;
+      x.beginPath();
+      x.arc(0, 0, 100 * pulse, 0, TAU);
+      x.fill();
+      let g = x.createRadialGradient(-20, -24, 8, 0, 0, 70);
+      g.addColorStop(0, "#fffbe6");
+      g.addColorStop(0.6, "#ffe489");
+      g.addColorStop(1, "#f0bd4a");
+      x.fillStyle = g;
+      x.beginPath();
+      x.arc(0, 0, 68, 0, TAU);
+      x.fill();
+      x.fillStyle = "rgba(200,150,50,.22)";
+      [[-22, 14, 12], [18, -18, 9], [26, 22, 14], [-8, -34, 6]].forEach(([a, b, r]) => {
+        x.beginPath();
+        x.arc(a, b, r, 0, TAU);
+        x.fill();
+      });
+      for (let i = 0; i < 2; i++) {
+        let cx = ((t * 14 + i * 120) % 260) - 130,
+          cy = i ? 40 : -10;
+        x.fillStyle = "rgba(70,80,130,.55)";
+        for (let k = 0; k < 4; k++) {
+          x.beginPath();
+          x.ellipse(cx + k * 20 - 30, cy + (k % 2) * -6, 22, 11, 0, 0, TAU);
+          x.fill();
+        }
+      }
+      for (let i = 0; i < 5; i++) sparkle228(x, -95 + h228(i + 3) * 190, -95 + h228(i + 11) * 190, 6, t * 3 + i * 2, "#ffffff");
+      if (d.text) ink228(x, d.text, 0, 88, 26, "#fff3c4", "#3a2a6a");
+    },
+    songpyeon(x, d, t) {
+      x.fillStyle = "#ffffff";
+      x.strokeStyle = "#2f63b8";
+      x.lineWidth = 5;
+      x.beginPath();
+      x.ellipse(0, 40, 96, 36, 0, 0, TAU);
+      x.fill();
+      x.stroke();
+      x.strokeStyle = "#3f9b4a";
+      x.lineWidth = 2.5;
+      for (let i = 0; i < 14; i++) {
+        let a = -0.6 + i * 0.09;
+        x.beginPath();
+        x.moveTo(-70 + i * 10, 46);
+        x.lineTo(-70 + i * 10 + Math.cos(a) * 30, 46 + Math.sin(a) * 14);
+        x.stroke();
+      }
+      [["#f7f1e3", -46, 26], ["#ffb3c7", 0, 18], ["#a8d08d", 46, 26], ["#ffe08a", -22, 44], ["#f7f1e3", 26, 44]].forEach(([c, px, py], i) => {
+        x.save();
+        x.translate(px, py + Math.sin(t * 2 + i) * 1.2);
+        x.rotate(i % 2 ? 0.3 : -0.2);
+        x.fillStyle = c;
+        x.strokeStyle = "rgba(120,90,50,.35)";
+        x.lineWidth = 2;
+        x.beginPath();
+        x.moveTo(-24, 6);
+        x.bezierCurveTo(-24, -26, 24, -26, 24, 6);
+        x.quadraticCurveTo(0, 12, -24, 6);
+        x.closePath();
+        x.fill();
+        x.stroke();
+        x.fillStyle = "rgba(255,255,255,.55)";
+        x.beginPath();
+        x.ellipse(-6, -8, 8, 4, -0.4, 0, TAU);
+        x.fill();
+        x.restore();
+      });
+      steam228(x, t, [-30, 0, 30], -10);
+      if (d.text) ink228(x, d.text, 0, -78, 26, "#ffffff", "#8a4a1a");
+    },
+    kite(x, d, t) {
+      x.strokeStyle = "rgba(255,255,255,.85)";
+      x.lineWidth = 2;
+      x.beginPath();
+      x.moveTo(0, 30);
+      x.quadraticCurveTo(-30 + Math.sin(t) * 10, 80, -96, 100);
+      x.stroke();
+      x.save();
+      x.translate(Math.sin(t * 1.1) * 10, -20 + Math.sin(t * 1.7) * 8);
+      x.rotate(Math.sin(t * 1.3) * 0.1);
+      x.fillStyle = "#fbf7ec";
+      x.strokeStyle = "#2b2b2b";
+      x.lineWidth = 2;
+      rr228(x, -52, -66, 104, 132, 3);
+      x.fill();
+      x.stroke();
+      x.fillStyle = "#0047a0";
+      x.fillRect(-52, 50, 104, 16);
+      x.fillStyle = "#cd2e3a";
+      x.beginPath();
+      x.arc(0, -66, 18, 0, Math.PI);
+      x.fill();
+      x.fillStyle = "#ffcf4a";
+      x.fillRect(-52, -66, 10, 116);
+      x.fillRect(42, -66, 10, 116);
+      x.strokeStyle = "#3a3a3a";
+      x.beginPath();
+      x.moveTo(-52, -66);
+      x.lineTo(52, 66);
+      x.moveTo(52, -66);
+      x.lineTo(-52, 66);
+      x.moveTo(0, -66);
+      x.lineTo(0, 66);
+      x.stroke();
+      x.fillStyle = "#87b8e8";
+      x.beginPath();
+      x.arc(0, 0, 18, 0, TAU);
+      x.fill();
+      x.stroke();
+      x.restore();
+    },
+    carnation(x, d, t) {
+      x.save();
+      x.translate(0, 96);
+      x.rotate(Math.sin(t * 1.8) * 0.06);
+      x.strokeStyle = "#3f9b4a";
+      x.lineWidth = 6;
+      x.beginPath();
+      x.moveTo(0, 0);
+      x.quadraticCurveTo(-6, -60, 0, -118);
+      x.stroke();
+      x.fillStyle = "#4caf50";
+      x.beginPath();
+      x.ellipse(-20, -56, 22, 6, -0.6, 0, TAU);
+      x.ellipse(20, -74, 22, 6, 0.6, 0, TAU);
+      x.fill();
+      x.fillStyle = "#3f9b4a";
+      x.beginPath();
+      x.moveTo(-14, -118);
+      x.lineTo(14, -118);
+      x.lineTo(8, -138);
+      x.lineTo(-8, -138);
+      x.closePath();
+      x.fill();
+      let c = d.color || "#e0203c";
+      for (let layer = 0; layer < 3; layer++) {
+        let r = 50 - layer * 12,
+          cy = -150 - layer * 6;
+        x.fillStyle = layer % 2 ? "#ff5a6e" : c;
+        x.beginPath();
+        for (let k = 0; k <= 16; k++) {
+          let a = Math.PI + (k / 16) * Math.PI,
+            rr = r + (k % 2 ? 6 : -2);
+          x.lineTo(Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.75);
+        }
+        x.lineTo(r * 0.6, cy + 14);
+        x.lineTo(-r * 0.6, cy + 14);
+        x.closePath();
+        x.fill();
+      }
+      x.restore();
+      x.fillStyle = "#ff8fb8";
+      x.beginPath();
+      x.moveTo(0, 40);
+      x.lineTo(-34, 22);
+      x.lineTo(-34, 58);
+      x.closePath();
+      x.moveTo(0, 40);
+      x.lineTo(34, 22);
+      x.lineTo(34, 58);
+      x.closePath();
+      x.fill();
+      x.fillStyle = "#ff5f8a";
+      rr228(x, -84, 52, 168, 34, 10);
+      x.fill();
+      ink228(x, d.text || "감사합니다", 0, 70, 22, "#ffffff", null);
+    },
+    mugunghwa(x, d, t) {
+      x.save();
+      x.rotate(t * 0.2);
+      x.scale(1 + Math.sin(t * 2) * 0.03, 1 + Math.sin(t * 2) * 0.03);
+      let pc = d.color || "#f08ac0";
+      for (let i = 0; i < 5; i++) {
+        x.save();
+        x.rotate((i / 5) * TAU);
+        let g = x.createLinearGradient(0, 0, 0, -90);
+        g.addColorStop(0, d.center || "#c0103a");
+        g.addColorStop(0.32, d.center || "#c0103a");
+        g.addColorStop(0.45, pc);
+        g.addColorStop(1, d.edge || "#fbd3e8");
+        x.fillStyle = g;
+        x.beginPath();
+        x.moveTo(0, 0);
+        x.bezierCurveTo(-56, -30, -50, -92, 0, -88);
+        x.bezierCurveTo(50, -92, 56, -30, 0, 0);
+        x.fill();
+        x.strokeStyle = "rgba(160,20,70,.25)";
+        x.lineWidth = 1.4;
+        for (let k = -2; k <= 2; k++) {
+          x.beginPath();
+          x.moveTo(0, -12);
+          x.quadraticCurveTo(k * 10, -50, k * 16, -80);
+          x.stroke();
+        }
+        x.restore();
+      }
+      x.fillStyle = "#fff6d6";
+      x.save();
+      x.rotate(-0.4);
+      rr228(x, -5, -40, 10, 40, 5);
+      x.fill();
+      x.fillStyle = "#ffd23f";
+      for (let k = 0; k < 10; k++) {
+        x.beginPath();
+        x.arc(Math.cos(k) * 7, -40 + Math.sin(k * 2) * 6, 3, 0, TAU);
+        x.fill();
+      }
+      x.restore();
+      x.restore();
+    },
+    hanbok(x, d, t) {
+      let skirt = d.color || "#d81b3c",
+        top = d.color2 || "#ffd23f";
+      x.save();
+      x.translate(0, -6);
+      let sw = Math.sin(t * 2) * 6;
+      let g = x.createLinearGradient(0, -20, 0, 110);
+      g.addColorStop(0, skirt);
+      g.addColorStop(1, d.skirtDeep || "#8a0a24");
+      x.fillStyle = g;
+      x.beginPath();
+      x.moveTo(-34, -30);
+      x.lineTo(34, -30);
+      x.bezierCurveTo(70, 20, 88 + sw, 80, 92 + sw, 108);
+      for (let k = 0; k <= 8; k++) x.lineTo(92 + sw - k * 23 + Math.sin(t * 3 + k) * 2, 108 + (k % 2 ? 4 : 0));
+      x.bezierCurveTo(-88 + sw, 80, -70, 20, -34, -30);
+      x.closePath();
+      x.fill();
+      x.fillStyle = "rgba(255,255,255,.18)";
+      x.beginPath();
+      x.moveTo(-10, -26);
+      x.lineTo(10, -26);
+      x.lineTo(30 + sw, 104);
+      x.lineTo(-6 + sw, 104);
+      x.closePath();
+      x.fill();
+      let stripes = ["#e0203c", "#ffd23f", "#3fa34d", "#2f6bd8", "#ffffff", "#ff6fa5"];
+      for (let s of [-1, 1]) {
+        x.save();
+        x.scale(s, 1);
+        x.translate(34, -66);
+        x.rotate(0.55 + Math.sin(t * 2 + s) * 0.05);
+        for (let k = 0; k < 6; k++) {
+          x.fillStyle = stripes[k];
+          x.fillRect(k * 11, -14, 11, 30);
+        }
+        x.fillStyle = "#ffffff";
+        x.fillRect(66, -14, 8, 30);
+        x.restore();
+      }
+      x.fillStyle = top;
+      x.beginPath();
+      x.moveTo(-44, -84);
+      x.quadraticCurveTo(0, -96, 44, -84);
+      x.lineTo(44, -34);
+      x.quadraticCurveTo(0, -24, -44, -34);
+      x.closePath();
+      x.fill();
+      x.strokeStyle = "#ffffff";
+      x.lineWidth = 6;
+      x.beginPath();
+      x.moveTo(-18, -92);
+      x.lineTo(8, -54);
+      x.moveTo(18, -92);
+      x.lineTo(-2, -64);
+      x.stroke();
+      x.fillStyle = d.ribbon || "#c8102e";
+      x.beginPath();
+      x.ellipse(-8, -50, 14, 7, -0.3, 0, TAU);
+      x.fill();
+      x.save();
+      x.translate(-4, -46);
+      x.rotate(Math.sin(t * 2.4) * 0.15);
+      rr228(x, -6, 0, 10, 64, 4);
+      x.fill();
+      rr228(x, 6, 0, 10, 52, 4);
+      x.fill();
+      x.restore();
+      x.restore();
+    },
+    cake(x, d, t) {
+      x.fillStyle = "#e8f0ff";
+      x.beginPath();
+      x.ellipse(0, 92, 96, 14, 0, 0, TAU);
+      x.fill();
+      x.fillStyle = "#ffd8e6";
+      rr228(x, -80, 26, 160, 64, 10);
+      x.fill();
+      x.fillStyle = "#fff8ef";
+      rr228(x, -56, -26, 112, 56, 10);
+      x.fill();
+      x.fillStyle = "#ffffff";
+      for (let [yy, ww] of [[26, 80], [-26, 56]]) {
+        x.beginPath();
+        x.moveTo(-ww, yy);
+        for (let k = 0; k <= 10; k++) {
+          let px = -ww + (k / 10) * ww * 2;
+          x.quadraticCurveTo(px - ww / 10, yy + (k % 2 ? 16 : 4), px, yy);
+        }
+        x.lineTo(ww, yy - 4);
+        x.lineTo(-ww, yy - 4);
+        x.fill();
+      }
+      x.fillStyle = "#e0203c";
+      for (let k = 0; k < 5; k++) {
+        x.beginPath();
+        x.arc(-44 + k * 22, -30, 8, 0, TAU);
+        x.fill();
+      }
+      for (let k = 0; k < 3; k++) {
+        let cx = -30 + k * 30;
+        x.fillStyle = ["#7fc8ff", "#ff8fb8", "#ffd23f"][k];
+        x.fillRect(cx - 4, -76, 8, 40);
+        let fl = 1 + Math.sin(t * 14 + k * 2) * 0.15 + h228(Math.floor(t * 10) + k) * 0.1;
+        x.save();
+        x.translate(cx, -82);
+        x.scale(1, fl);
+        x.globalCompositeOperation = "lighter";
+        let g = x.createRadialGradient(0, -6, 1, 0, -6, 16);
+        g.addColorStop(0, "rgba(255,250,200,1)");
+        g.addColorStop(0.5, "rgba(255,170,40,.8)");
+        g.addColorStop(1, "rgba(255,120,0,0)");
+        x.fillStyle = g;
+        x.beginPath();
+        x.ellipse(0, -6, 9, 16, 0, 0, TAU);
+        x.fill();
+        x.restore();
+      }
+      ink228(x, d.text || "생일 축하해요", 0, 62, 20, "#ff3b7a", null);
+    },
+    tteokguk(x, d, t) {
+      steam228(x, t, [-34, 0, 34], -30);
+      x.fillStyle = "#1f2f5a";
+      x.beginPath();
+      x.moveTo(-96, 0);
+      x.bezierCurveTo(-90, 80, 90, 80, 96, 0);
+      x.closePath();
+      x.fill();
+      x.strokeStyle = "#ffcf4a";
+      x.lineWidth = 3;
+      x.beginPath();
+      x.moveTo(-80, 34);
+      for (let k = 0; k < 8; k++) x.lineTo(-80 + k * 20 + 10, k % 2 ? 34 : 24), x.lineTo(-80 + (k + 1) * 20, 34);
+      x.stroke();
+      x.fillStyle = "#1f2f5a";
+      rr228(x, -36, 66, 72, 14, 4);
+      x.fill();
+      x.fillStyle = "#f4ead2";
+      x.beginPath();
+      x.ellipse(0, 0, 96, 26, 0, 0, TAU);
+      x.fill();
+      for (let k = 0; k < 9; k++) {
+        x.fillStyle = "#ffffff";
+        x.strokeStyle = "rgba(160,140,110,.5)";
+        x.lineWidth = 1.5;
+        x.beginPath();
+        x.ellipse(-62 + (k % 5) * 30 + (k > 4 ? 14 : 0), -8 + (k > 4 ? 12 : 0) + Math.sin(t * 2 + k) * 1.2, 15, 8, (k % 3) * 0.3, 0, TAU);
+        x.fill();
+        x.stroke();
+      }
+      x.strokeStyle = "#ffd23f";
+      x.lineWidth = 3;
+      x.beginPath();
+      for (let k = 0; k < 6; k++) x.moveTo(-20 + k * 7, -14), x.lineTo(-14 + k * 7, -2);
+      x.stroke();
+      x.fillStyle = "#4caf50";
+      for (let k = 0; k < 6; k++) {
+        x.beginPath();
+        x.arc(10 + k * 9, -12 + (k % 2) * 6, 3.4, 0, TAU);
+        x.fill();
+      }
+      if (d.text) ink228(x, d.text, 0, -82, 24, "#ffffff", "#8a1020");
+    },
+    banner(x, d, t) {
+      let bw = (d.w || 3.6) * 100 - 20,
+        bh = 76;
+      x.save();
+      x.translate(0, Math.sin(t * 2.5) * 4);
+      x.save();
+      rr228(x, -bw / 2, -bh / 2, bw, bh, 18);
+      x.clip();
+      let stripes = ["#e0203c", "#ffd23f", "#3fa34d", "#2f6bd8", "#ffffff", "#ff6fa5", "#8b5cf6"];
+      for (let k = 0; k < 7; k++) {
+        x.fillStyle = stripes[k];
+        x.fillRect(-bw / 2, -bh / 2 + (k * bh) / 7, bw, bh / 7 + 1);
+      }
+      x.fillStyle = "rgba(255,250,240,.93)";
+      rr228(x, -bw / 2 + 16, -bh / 2 + 10, bw - 32, bh - 20, 12);
+      x.fill();
+      x.restore();
+      x.font = font228(34, 900, "serif");
+      let tw = x.measureText(d.text).width,
+        fs = Math.min(34, (34 * (bw - 70)) / Math.max(1, tw));
+      ink228(x, d.text, 0, 2, fs, d.ink || "#b0102a", null, 900, "serif");
+      x.restore();
+      for (let i = 0; i < 4; i++) sparkle228(x, -bw / 2 + h228(i) * bw, (i % 2 ? -1 : 1) * 46, 8, t * 4 + i * 1.6);
+    },
+  };
+  function steam228(x, t, xs, base) {
+    x.save();
+    x.strokeStyle = "rgba(255,255,255,.65)";
+    x.lineWidth = 5;
+    xs.forEach((sx, i) => {
+      let ph = (t * 0.6 + i * 0.33) % 1;
+      x.globalAlpha = Math.sin(ph * Math.PI) * 0.8;
+      x.beginPath();
+      for (let k = 0; k <= 12; k++) {
+        let yy = base - k * 5 - ph * 30;
+        x.lineTo(sx + Math.sin(k * 0.7 + t * 3 + i) * 7, yy);
+      }
+      x.stroke();
+    });
+    x.restore();
+  }
+  socialPainters125.kr228 = function (x, d, W, H, t) {
+    let f = KR228[d.kind];
+    if (f) boxed228(x, d, W, H, () => f(x, d, t));
+  };
+
+  const STICKERS228 = [
+    // 움직이는 응원
+    ["응원봉 흔들기 · 핑크", "움직이는 응원", { style: "cheer228", kind: "glowstick", colors: ["#ff4fb0", "#ff8fd0"] }],
+    ["응원봉 흔들기 · 파랑", "움직이는 응원", { style: "cheer228", kind: "glowstick", colors: ["#3f8cff", "#6fd8ff"] }],
+    ["응원봉 흔들기 · 노랑", "움직이는 응원", { style: "cheer228", kind: "glowstick", colors: ["#ffd23f", "#fff07a"] }],
+    ["응원봉 흔들기 · 무지개", "움직이는 응원", { style: "cheer228", kind: "glowstick", rainbow: true }],
+    ["박수 짝짝짝", "움직이는 응원", { style: "cheer228", kind: "clap" }],
+    ["박수 · 브라보", "움직이는 응원", { style: "cheer228", kind: "clap", text: "브라보!", color: "#2f7bff" }],
+    ["하트 뿅뿅 날리기", "움직이는 응원", { style: "cheer228", kind: "hearts" }],
+    ["금빛 하트 날리기", "움직이는 응원", { style: "cheer228", kind: "hearts", colors: ["#ffd23f", "#ffb020", "#fff1a8"] }],
+    ["불꽃놀이 팡팡", "움직이는 응원", { style: "cheer228", kind: "fireworks" }],
+    ["황금 불꽃놀이", "움직이는 응원", { style: "cheer228", kind: "fireworks", colors: ["#ffd23f", "#fff1a8", "#ffb020"] }],
+    ["꽃가루 팡!", "움직이는 응원", { style: "cheer228", kind: "popper" }],
+    ["꽃가루 · 축하해요", "움직이는 응원", { style: "cheer228", kind: "popper", text: "축하해요!" }],
+    ["말풍선 · 앵콜!", "움직이는 응원", { style: "cheer228", kind: "bubble", text: "앵콜!", color: "#ff2d55", w: 2.4, h: 1.4 }],
+    ["말풍선 · 최고!", "움직이는 응원", { style: "cheer228", kind: "bubble", text: "최고!", color: "#ff8a00", w: 2.4, h: 1.4 }],
+    ["말풍선 · 브라보!", "움직이는 응원", { style: "cheer228", kind: "bubble", text: "브라보!", color: "#2f7bff", w: 2.6, h: 1.4 }],
+    ["말풍선 · 사랑해요", "움직이는 응원", { style: "cheer228", kind: "bubble", text: "사랑해요♥", color: "#ff4fa3", w: 3, h: 1.4 }],
+    ["말풍선 · 한 곡 더!", "움직이는 응원", { style: "cheer228", kind: "bubble", text: "한 곡 더!", color: "#8b5cf6", w: 2.8, h: 1.4 }],
+    ["말풍선 · 멋져요!", "움직이는 응원", { style: "cheer228", kind: "bubble", text: "멋져요!", color: "#18b98b", w: 2.6, h: 1.4 }],
+    ["엄지척 최고", "움직이는 응원", { style: "cheer228", kind: "thumb", text: "최고!" }],
+    ["축하 화환", "움직이는 응원", { style: "cheer228", kind: "wreath" }],
+    ["축하 화환 · 데뷔", "움직이는 응원", { style: "cheer228", kind: "wreath", text: "데뷔 축하", colors: ["#ffffff", "#ffd23f", "#ff9ec4"] }],
+    ["황금 트로피", "움직이는 응원", { style: "cheer228", kind: "trophy" }],
+    ["황금 왕관", "움직이는 응원", { style: "cheer228", kind: "crown" }],
+    ["황금 마이크 노래", "움직이는 응원", { style: "cheer228", kind: "mic" }],
+    // 우리 명절 · 행사
+    ["휘날리는 태극기", "우리 명절·행사", { style: "kr228", kind: "flagPole", w: 2.4, h: 2.4 }],
+    ["태극기 물결", "우리 명절·행사", { style: "kr228", kind: "flag", w: 2.4, h: 1.7 }],
+    ["손 태극기 흔들기", "우리 명절·행사", { style: "kr228", kind: "handFlags", w: 2.4, h: 2 }],
+    ["손 태극기 · 대한민국 만세", "우리 명절·행사", { style: "kr228", kind: "handFlags", text: "대한민국 만세", w: 2.4, h: 2 }],
+    ["복주머니 · 빨강", "우리 명절·행사", { style: "kr228", kind: "pouch" }],
+    ["복주머니 · 분홍", "우리 명절·행사", { style: "kr228", kind: "pouch", color: "#ff5f9a", color2: "#b0185a" }],
+    ["복주머니 · 남색", "우리 명절·행사", { style: "kr228", kind: "pouch", color: "#2f4fb8", color2: "#14205a" }],
+    ["한가위 보름달", "우리 명절·행사", { style: "kr228", kind: "moon" }],
+    ["보름달 · 풍성한 한가위", "우리 명절·행사", { style: "kr228", kind: "moon", text: "풍성한 한가위" }],
+    ["송편 한 접시", "우리 명절·행사", { style: "kr228", kind: "songpyeon" }],
+    ["방패연 날리기", "우리 명절·행사", { style: "kr228", kind: "kite" }],
+    ["카네이션 · 감사합니다", "우리 명절·행사", { style: "kr228", kind: "carnation" }],
+    ["카네이션 · 사랑해요", "우리 명절·행사", { style: "kr228", kind: "carnation", text: "사랑해요 부모님", color: "#ff3b7a" }],
+    ["무궁화 · 분홍", "우리 명절·행사", { style: "kr228", kind: "mugunghwa" }],
+    ["무궁화 · 백단심", "우리 명절·행사", { style: "kr228", kind: "mugunghwa", color: "#fff4f8", edge: "#ffffff" }],
+    ["색동 한복", "우리 명절·행사", { style: "kr228", kind: "hanbok" }],
+    ["분홍 한복", "우리 명절·행사", { style: "kr228", kind: "hanbok", color: "#ff7fb0", color2: "#bfe8ff", skirtDeep: "#c8457a", ribbon: "#8b5cf6" }],
+    ["생일 케이크 촛불", "우리 명절·행사", { style: "kr228", kind: "cake" }],
+    ["설날 떡국", "우리 명절·행사", { style: "kr228", kind: "tteokguk" }],
+    ["색동 띠 · 새해 복 많이 받으세요", "우리 명절·행사", { style: "kr228", kind: "banner", text: "새해 복 많이 받으세요", w: 4, h: 1.2 }],
+    ["색동 띠 · 풍성한 한가위 되세요", "우리 명절·행사", { style: "kr228", kind: "banner", text: "풍성한 한가위 되세요", w: 4, h: 1.2 }],
+    ["색동 띠 · 늘 건강하세요", "우리 명절·행사", { style: "kr228", kind: "banner", text: "늘 건강하세요", w: 3.4, h: 1.2 }],
+    ["색동 띠 · 대한민국 만세", "우리 명절·행사", { style: "kr228", kind: "banner", text: "대한민국 만세", ink: "#0047a0", w: 3.4, h: 1.2 }],
+  ];
+  STICKERS228.forEach(([name, category, design], i) =>
+    stickerLibrary.push({
+      name,
+      category,
+      emoji: name,
+      design: { w: 2, h: 2, ...design, name, symbol: "✦", color: design.color || "#ff4f8b" },
+      id: "sticker228-" + i,
+    }),
+  );
+
+  // ───────────── 분위기 효과 · 무대 테두리 (화면 전체) ─────────────
+  const MOOD228 = {
+    golddust(g, W, H, t, d, u) {
+      g.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 120; i++) {
+        let sp = 0.06 + h228(i) * 0.1,
+          ph = (h228(i + 50) + t * sp) % 1,
+          x = (h228(i + 9) + Math.sin(t * 0.7 + i) * 0.02) * W,
+          y = ph * (H + 40) - 20,
+          r = (1.2 + h228(i + 3) * 2.8) * u,
+          tw = 0.45 + 0.55 * Math.sin(t * 5 + i * 1.7);
+        g.globalAlpha = 0.85 * tw;
+        g.fillStyle = i % 4 ? "#ffd65a" : "#fff6c4";
+        g.shadowColor = "#ffcf4a";
+        g.shadowBlur = r * 4;
+        g.beginPath();
+        g.arc(x, y, r, 0, TAU);
+        g.fill();
+        if (i % 9 === 0) {
+          g.globalAlpha = tw;
+          star228(g, x, y, r * 3.2, 4, 0.25, 0);
+          g.fill();
+        }
+      }
+    },
+    lantern(g, W, H, t, d, u) {
+      for (let i = 0; i < 16; i++) {
+        let sp = 0.025 + h228(i) * 0.03,
+          ph = (h228(i + 30) + t * sp) % 1,
+          depth = 0.45 + h228(i + 7) * 0.75,
+          x = (h228(i + 13) + Math.sin(t * 0.4 + i) * 0.015) * W,
+          y = H + 60 * u - ph * (H + 140 * u),
+          s = 26 * u * depth,
+          fl = 0.85 + 0.15 * Math.sin(t * 7 + i * 3);
+        g.save();
+        g.globalAlpha = Math.min(1, Math.sin(ph * Math.PI) * 1.6) * (0.55 + depth * 0.4);
+        g.translate(x, y);
+        g.rotate(Math.sin(t + i) * 0.06);
+        let glow = g.createRadialGradient(0, 0, s * 0.2, 0, 0, s * 2.6);
+        glow.addColorStop(0, `rgba(255,170,60,${0.55 * fl})`);
+        glow.addColorStop(1, "rgba(255,140,40,0)");
+        g.fillStyle = glow;
+        g.beginPath();
+        g.arc(0, 0, s * 2.6, 0, TAU);
+        g.fill();
+        let body = g.createLinearGradient(0, -s, 0, s);
+        body.addColorStop(0, "#ffe7a8");
+        body.addColorStop(0.7, "#ffa63d");
+        body.addColorStop(1, "#ff7a1a");
+        g.fillStyle = body;
+        g.beginPath();
+        g.moveTo(-s * 0.62, -s);
+        g.lineTo(s * 0.62, -s);
+        g.quadraticCurveTo(s * 0.8, 0, s * 0.42, s);
+        g.lineTo(-s * 0.42, s);
+        g.quadraticCurveTo(-s * 0.8, 0, -s * 0.62, -s);
+        g.fill();
+        g.fillStyle = `rgba(255,255,220,${0.9 * fl})`;
+        g.beginPath();
+        g.ellipse(0, s * 0.78, s * 0.18, s * 0.12, 0, 0, TAU);
+        g.fill();
+        g.restore();
+      }
+    },
+    firefly(g, W, H, t, d, u) {
+      g.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 46; i++) {
+        let x = (h228(i) + Math.sin(t * (0.2 + h228(i + 3) * 0.3) + i) * 0.06) * W,
+          y = (0.25 + h228(i + 8) * 0.75 + Math.cos(t * (0.25 + h228(i + 5) * 0.3) + i * 2) * 0.05) * H,
+          blink = Math.max(0, Math.sin(t * (1.2 + h228(i + 2)) + i * 2.3)),
+          r = (2 + h228(i + 1) * 2.5) * u;
+        let gr = g.createRadialGradient(x, y, 0, x, y, r * 7);
+        gr.addColorStop(0, `rgba(230,255,140,${0.95 * blink})`);
+        gr.addColorStop(0.25, `rgba(190,255,90,${0.45 * blink})`);
+        gr.addColorStop(1, "rgba(150,255,60,0)");
+        g.fillStyle = gr;
+        g.beginPath();
+        g.arc(x, y, r * 7, 0, TAU);
+        g.fill();
+      }
+    },
+    leaves(g, W, H, t, d, u) {
+      let cols = d.colors || ["#e8502e", "#ff8a3d", "#ffc24b", "#c43a1e", "#b8762a"];
+      for (let i = 0; i < 34; i++) {
+        let sp = 0.05 + h228(i) * 0.06,
+          ph = (h228(i + 40) + t * sp) % 1,
+          x = (h228(i + 9) + Math.sin(t * 0.9 + i) * 0.05) * W,
+          y = ph * (H + 80 * u) - 40 * u,
+          s = (12 + h228(i + 2) * 14) * u;
+        g.save();
+        g.translate(x, y);
+        g.rotate(t * (0.6 + h228(i + 4)) + i);
+        g.scale(1, 0.55 + 0.45 * Math.sin(t * 2.4 + i));
+        g.fillStyle = cols[i % cols.length];
+        if (i % 2) {
+          star228(g, 0, 0, s, 5, 0.5);
+          g.fill();
+        } else {
+          g.beginPath();
+          g.moveTo(0, -s);
+          g.quadraticCurveTo(s * 0.8, 0, 0, s);
+          g.quadraticCurveTo(-s * 0.8, 0, 0, -s);
+          g.fill();
+          g.strokeStyle = "rgba(90,40,10,.45)";
+          g.lineWidth = 1.2 * u;
+          g.beginPath();
+          g.moveTo(0, -s);
+          g.lineTo(0, s);
+          g.stroke();
+        }
+        g.restore();
+      }
+    },
+    bubbles(g, W, H, t, d, u) {
+      for (let i = 0; i < 30; i++) {
+        let sp = 0.05 + h228(i) * 0.07,
+          ph = (h228(i + 20) + t * sp) % 1,
+          r = (10 + h228(i + 6) * 30) * u,
+          x = (h228(i + 11) + Math.sin(t * 1.3 + i) * 0.025) * W,
+          y = H + r - ph * (H + r * 2);
+        g.save();
+        g.globalAlpha = 0.85;
+        let hue = (i * 47 + t * 40) % 360,
+          gr = g.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+        gr.addColorStop(0, "rgba(255,255,255,0.05)");
+        gr.addColorStop(0.8, `hsla(${hue},90%,75%,0.18)`);
+        gr.addColorStop(1, `hsla(${hue + 60},90%,80%,0.55)`);
+        g.fillStyle = gr;
+        g.beginPath();
+        g.arc(x, y, r, 0, TAU);
+        g.fill();
+        g.strokeStyle = "rgba(255,255,255,.55)";
+        g.lineWidth = 1.2 * u;
+        g.stroke();
+        g.fillStyle = "rgba(255,255,255,.85)";
+        g.beginPath();
+        g.ellipse(x - r * 0.4, y - r * 0.42, r * 0.2, r * 0.11, -0.7, 0, TAU);
+        g.fill();
+        g.restore();
+      }
+    },
+    heartrain(g, W, H, t, d, u) {
+      let cols = d.colors || ["#ff4f8b", "#ff2d55", "#ff8fb8", "#ffd1e1"];
+      for (let i = 0; i < 44; i++) {
+        let sp = 0.07 + h228(i) * 0.08,
+          ph = (h228(i + 60) + t * sp) % 1,
+          s = (8 + h228(i + 2) * 12) * u,
+          x = (h228(i + 17) + Math.sin(t * 1.5 + i) * 0.02) * W,
+          y = ph * (H + 60 * u) - 30 * u;
+        g.save();
+        g.globalAlpha = 0.9;
+        g.translate(x, y);
+        g.rotate(Math.sin(t * 2 + i) * 0.4);
+        g.fillStyle = cols[i % cols.length];
+        g.shadowColor = cols[i % cols.length];
+        g.shadowBlur = 8 * u;
+        heart228(g, 0, 0, s);
+        g.fill();
+        g.restore();
+      }
+    },
+    flagwave(g, W, H, t, d, u) {
+      let fw = W * 0.26,
+        fh = (fw * 2) / 3,
+        X = W - fw - 40 * u,
+        Y = 44 * u;
+      pole228(g, X - 4 * u, Y - 6 * u, Y + fh + 120 * u);
+      wavingFlag228(g, X, Y, fw, fh, t, 0.085);
+    },
+    // 테두리
+    signchase(g, W, H, t, d, u) {
+      let bg = d.bg || "#5a0a18",
+        th = 46 * u;
+      g.fillStyle = bg;
+      g.fillRect(0, 0, W, th);
+      g.fillRect(0, H - th, W, th);
+      g.fillRect(0, 0, th, H);
+      g.fillRect(W - th, 0, th, H);
+      g.strokeStyle = "#ffcf4a";
+      g.lineWidth = 3 * u;
+      g.strokeRect(th - 2 * u, th - 2 * u, W - th * 2 + 4 * u, H - th * 2 + 4 * u);
+      g.strokeRect(3 * u, 3 * u, W - 6 * u, H - 6 * u);
+      let cols = d.colors || ["#ff3b5c", "#ffd23f", "#3fe08a", "#3fb6ff", "#c58bff"],
+        step = 0;
+      alongEdge133(W, H, th / 2, 40 * u, (x, y, i, n) => {
+        let on = (i + Math.floor(t * 8)) % 3 === 0,
+          c = cols[i % cols.length];
+        g.save();
+        g.fillStyle = on ? c : "rgba(255,255,255,.18)";
+        if (on) {
+          g.shadowColor = c;
+          g.shadowBlur = 16 * u;
+        }
+        g.beginPath();
+        g.arc(x, y, 8 * u, 0, TAU);
+        g.fill();
+        g.restore();
+        step++;
+      });
+      if (d.text) {
+        let fs = 34 * u;
+        g.font = font228(fs, 900, "serif");
+        let tw = g.measureText(d.text).width + 60 * u;
+        g.fillStyle = bg;
+        rr228(g, W / 2 - tw / 2, th * 0.15, tw, th * 1.6, 12 * u);
+        g.fill();
+        g.strokeStyle = "#ffcf4a";
+        g.lineWidth = 3 * u;
+        g.stroke();
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillStyle = goldGrad228(g, th * 0.3, th * 1.6);
+        g.shadowColor = "rgba(255,200,80,.9)";
+        g.shadowBlur = 12 * u * (0.7 + 0.3 * Math.sin(t * 5));
+        g.fillText(d.text, W / 2, th * 0.95);
+      }
+    },
+    goldleaf(g, W, H, t, d, u) {
+      let th = 40 * u,
+        base = d.color || "#7a0f1e";
+      g.fillStyle = base;
+      g.fillRect(0, 0, W, th);
+      g.fillRect(0, H - th, W, th);
+      g.fillRect(0, 0, th, H);
+      g.fillRect(W - th, 0, th, H);
+      let gold = goldGrad228(g, 0, H, 0, W);
+      g.strokeStyle = gold;
+      g.lineWidth = 3 * u;
+      g.strokeRect(6 * u, 6 * u, W - 12 * u, H - 12 * u);
+      g.lineWidth = 2 * u;
+      g.strokeRect(th - 6 * u, th - 6 * u, W - th * 2 + 12 * u, H - th * 2 + 12 * u);
+      g.fillStyle = gold;
+      alongEdge133(W, H, th / 2, 30 * u, (x, y, i) => {
+        g.save();
+        g.translate(x, y);
+        g.rotate(Math.PI / 4);
+        let s = 5.5 * u;
+        g.fillRect(-s, -s, s * 2, s * 2);
+        g.fillStyle = base;
+        g.fillRect(-s * 0.4, -s * 0.4, s * 0.8, s * 0.8);
+        g.fillStyle = gold;
+        g.restore();
+      });
+      // 모서리 구름 문양
+      for (let [cx, cy, sx, sy] of [[0, 0, 1, 1], [W, 0, -1, 1], [0, H, 1, -1], [W, H, -1, -1]]) {
+        g.save();
+        g.translate(cx, cy);
+        g.scale(sx, sy);
+        g.fillStyle = gold;
+        g.beginPath();
+        g.arc(th, th, 30 * u, 0, TAU);
+        g.fill();
+        g.fillStyle = base;
+        g.beginPath();
+        g.arc(th, th, 24 * u, 0, TAU);
+        g.fill();
+        g.strokeStyle = gold;
+        g.lineWidth = 3 * u;
+        g.beginPath();
+        g.arc(th, th, 13 * u, Math.PI * 0.2, Math.PI * 1.7);
+        g.stroke();
+        g.beginPath();
+        g.arc(th + 6 * u, th + 2 * u, 6 * u, Math.PI, Math.PI * 2.4);
+        g.stroke();
+        g.restore();
+      }
+      let sp = ((t * 0.25) % 1) * (W + H) * 2;
+      g.globalCompositeOperation = "lighter";
+      alongEdge133(W, H, th / 2, 14 * u, (x, y, i, n) => {
+        let dd = (i / n) * (W + H) * 2,
+          k = Math.max(0, 1 - Math.abs(dd - sp) / (90 * u));
+        if (k > 0) {
+          g.fillStyle = `rgba(255,245,200,${k * 0.6})`;
+          g.beginPath();
+          g.arc(x, y, 10 * u * k, 0, TAU);
+          g.fill();
+        }
+      });
+    },
+    hanji(g, W, H, t, d, u) {
+      let th = 54 * u;
+      g.save();
+      g.beginPath();
+      g.rect(0, 0, W, H);
+      let ix = th,
+        iy = th,
+        iw = W - th * 2,
+        ih = H - th * 2,
+        n = 60;
+      g.moveTo(ix, iy);
+      for (let k = 0; k <= n; k++) g.lineTo(ix + (iw * k) / n, iy + (h228(k) - 0.5) * 8 * u);
+      for (let k = 0; k <= n; k++) g.lineTo(ix + iw + (h228(k + 70) - 0.5) * 8 * u, iy + (ih * k) / n);
+      for (let k = 0; k <= n; k++) g.lineTo(ix + iw - (iw * k) / n, iy + ih + (h228(k + 140) - 0.5) * 8 * u);
+      for (let k = 0; k <= n; k++) g.lineTo(ix + (h228(k + 210) - 0.5) * 8 * u, iy + ih - (ih * k) / n);
+      g.closePath();
+      g.fillStyle = d.color || "#efe3c8";
+      g.fill("evenodd");
+      g.clip("evenodd");
+      g.strokeStyle = "rgba(150,120,70,.22)";
+      g.lineWidth = 1 * u;
+      for (let i = 0; i < 260; i++) {
+        let x = h228(i) * W,
+          y = h228(i + 400) * H,
+          a = h228(i + 800) * TAU,
+          l = (8 + h228(i + 1200) * 22) * u;
+        g.beginPath();
+        g.moveTo(x, y);
+        g.quadraticCurveTo(x + Math.cos(a + 1) * l * 0.5, y + Math.sin(a + 1) * l * 0.5, x + Math.cos(a) * l, y + Math.sin(a) * l);
+        g.stroke();
+      }
+      g.restore();
+      g.strokeStyle = "rgba(110,80,40,.35)";
+      g.lineWidth = 2 * u;
+      g.strokeRect(14 * u, 14 * u, W - 28 * u, H - 28 * u);
+      // 낙관 도장
+      g.save();
+      g.translate(W - th - 8 * u, H - th * 0.5);
+      g.rotate(-0.06);
+      g.fillStyle = "#c8102e";
+      rr228(g, -22 * u, -18 * u, 44 * u, 36 * u, 4 * u);
+      g.fill();
+      g.fillStyle = "#f6e9d0";
+      g.font = font228(15 * u, 900, "serif");
+      g.textAlign = "center";
+      g.textBaseline = "middle";
+      g.fillText(d.text || "클립", 0, 1 * u);
+      g.restore();
+    },
+    flowers(g, W, H, t, d, u) {
+      let cols = d.colors || ["#f08ac0", "#ff6fa5", "#ffffff", "#ffb3d1"];
+      const flower = (x, y, r, c, rot) => {
+        g.save();
+        g.translate(x, y);
+        g.rotate(rot);
+        for (let p = 0; p < 5; p++) {
+          g.save();
+          g.rotate((p / 5) * TAU);
+          g.fillStyle = c;
+          g.beginPath();
+          g.ellipse(0, -r * 0.55, r * 0.42, r * 0.6, 0, 0, TAU);
+          g.fill();
+          g.restore();
+        }
+        g.fillStyle = c === "#ffffff" ? "#ff6fa5" : "#c0103a";
+        g.beginPath();
+        g.arc(0, 0, r * 0.26, 0, TAU);
+        g.fill();
+        g.fillStyle = "#ffe48a";
+        g.beginPath();
+        g.arc(0, 0, r * 0.1, 0, TAU);
+        g.fill();
+        g.restore();
+      };
+      const leaf = (x, y, s, a) => {
+        g.save();
+        g.translate(x, y);
+        g.rotate(a);
+        g.fillStyle = "#3f9b4a";
+        g.beginPath();
+        g.ellipse(0, -s, s * 0.38, s, 0, 0, TAU);
+        g.fill();
+        g.restore();
+      };
+      for (let [cx, cy, sx, sy] of [[0, 0, 1, 1], [W, 0, -1, 1], [0, H, 1, -1], [W, H, -1, -1]]) {
+        g.save();
+        g.translate(cx, cy);
+        g.scale(sx, sy);
+        for (let i = 0; i < 9; i++) leaf((20 + h228(i) * 150) * u, (20 + h228(i + 5) * 100) * u, 22 * u, h228(i + 9) * TAU + Math.sin(t * 1.5 + i) * 0.1);
+        for (let i = 0; i < 7; i++) {
+          let a = (i / 6) * (Math.PI / 2),
+            rad = (60 + (i % 2) * 50) * u;
+          flower(Math.cos(a) * rad + 16 * u, Math.sin(a) * rad + 16 * u, (26 + (i % 3) * 6) * u * (1 + Math.sin(t * 2 + i) * 0.04), cols[i % cols.length], t * 0.15 + i);
+        }
+        flower(26 * u, 26 * u, 40 * u, cols[0], t * 0.1);
+        g.restore();
+      }
+      for (let i = 0; i < 10; i++) {
+        let ph = (t * 0.08 + h228(i)) % 1;
+        g.save();
+        g.globalAlpha = 0.8;
+        g.translate(h228(i + 3) * W + Math.sin(t + i) * 30 * u, ph * H);
+        g.rotate(t + i);
+        g.fillStyle = cols[i % cols.length];
+        g.beginPath();
+        g.ellipse(0, 0, 6 * u, 9 * u, 0, 0, TAU);
+        g.fill();
+        g.restore();
+      }
+    },
+  };
+  const MOOD_KINDS228 = new Set(Object.keys(MOOD228).map((k) => k + "228"));
+  const EFFECTS228 = [
+    ["금가루 비", "분위기 · 감성", { kind: "golddust228" }],
+    ["풍등 날리기", "분위기 · 감성", { kind: "lantern228" }],
+    ["반딧불이 밤", "분위기 · 감성", { kind: "firefly228" }],
+    ["가을 낙엽", "분위기 · 감성", { kind: "leaves228" }],
+    ["봄 꽃잎 낙엽", "분위기 · 감성", { kind: "leaves228", colors: ["#ffb3d1", "#ff8fb8", "#ffe0ec", "#ffffff"] }],
+    ["무지개 비눗방울", "분위기 · 감성", { kind: "bubbles228" }],
+    ["하트 비", "분위기 · 감성", { kind: "heartrain228" }],
+    ["황금 하트 비", "분위기 · 감성", { kind: "heartrain228", colors: ["#ffd23f", "#ffb020", "#fff1a8"] }],
+    ["휘날리는 태극기 (오른쪽 위)", "분위기 · 감성", { kind: "flagwave228" }],
+    ["트로트 전구 간판", "테두리 · 무대·전통", { kind: "signchase228" }],
+    ["트로트 전구 간판 · 제목", "테두리 · 무대·전통", { kind: "signchase228", text: "♪ 트로트 무대 ♪" }],
+    ["전구 간판 · 남색", "테두리 · 무대·전통", { kind: "signchase228", bg: "#101a4a", colors: ["#ffd23f", "#ffffff"] }],
+    ["금박 전통 액자", "테두리 · 무대·전통", { kind: "goldleaf228" }],
+    ["금박 전통 액자 · 남색", "테두리 · 무대·전통", { kind: "goldleaf228", color: "#13204f" }],
+    ["한지 액자", "테두리 · 무대·전통", { kind: "hanji228" }],
+    ["꽃장식 테두리", "테두리 · 무대·전통", { kind: "flowers228" }],
+    ["무궁화 꽃장식", "테두리 · 무대·전통", { kind: "flowers228", colors: ["#f08ac0", "#ffffff", "#e86aa8", "#ffd1e6"] }],
+  ];
+  for (let [name, category, def] of EFFECTS228) {
+    let value = "frame133-" + name;
+    if (frameByValue133.has(value)) continue;
+    effectLibrary.push({ id: "effect228-" + name, name, category, value, frame133: def, photoIndex: 1 });
+    frameByValue133.set(value, def);
+  }
+  libraries["효과"] = effectShapes93();
+  if (typeof eff180 !== "undefined") eff180.full = libraries["효과"];
+
+  // ───────────── 트로트 방송 글자 ─────────────
+  function trotText228(g, CW, text, size, color, y, style) {
+    let skin = String(style.skin || "").slice(6),
+      fam = style.font || "sans-serif",
+      lines = String(text).split("\n"),
+      weight = style.bold === false ? 400 : 900;
+    size = Math.max(10, size);
+    g.textAlign = "center";
+    g.textBaseline = "alphabetic";
+    const setF = () => (g.font = (style.italic ? "italic " : "") + weight + " " + size + "px " + fam);
+    setF();
+    let mw = Math.max(...lines.map((l) => g.measureText(l).width), 1);
+    if (mw > CW * 0.8) {
+      size *= (CW * 0.8) / mw;
+      setF();
+      mw = Math.max(...lines.map((l) => g.measureText(l).width), 1);
+    }
+    let lh = size * (style.lineHeight87 ?? 1.3),
+      pad = size * 0.45,
+      w = mw + pad * 2,
+      h = lh * lines.length + pad * 0.6,
+      cx = CW / 2,
+      left = cx - w / 2,
+      top = y - size - pad * 0.35,
+      custom = !!style.customColor93;
+    const each = (fn) => lines.forEach((l, i) => fn(l, y + i * lh));
+    if (skin === "goldtitle") {
+      let lg = g.createLinearGradient(left - size, 0, left + w + size, 0);
+      lg.addColorStop(0, "rgba(255,214,90,0)");
+      lg.addColorStop(0.2, "#ffd65a");
+      lg.addColorStop(0.8, "#ffd65a");
+      lg.addColorStop(1, "rgba(255,214,90,0)");
+      g.fillStyle = lg;
+      g.fillRect(left - size, top - size * 0.12, w + size * 2, Math.max(2, size * 0.06));
+      g.fillRect(left - size, top + h + size * 0.08, w + size * 2, Math.max(2, size * 0.06));
+      g.fillStyle = "rgba(90,10,20,.55)";
+      g.fillRect(left - size * 0.6, top, w + size * 1.2, h + size * 0.04);
+      g.font = size * 0.5 + "px serif";
+      g.fillStyle = "#ffd65a";
+      g.fillText("♪", left - size * 0.3, y - size * 0.25);
+      g.fillText("♪", left + w + size * 0.3, y - size * 0.25);
+      setF();
+      let gr = g.createLinearGradient(0, y - size, 0, y + lh * (lines.length - 1) + size * 0.2);
+      [["#fffbe3", 0], ["#ffe07a", 0.35], ["#c88a1c", 0.6], ["#fff1b0", 0.8], ["#a8701a", 1]].forEach(([c, p]) => gr.addColorStop(p, c));
+      g.lineJoin = "round";
+      g.lineWidth = Math.max(2, size * 0.1);
+      g.strokeStyle = "#3a1a04";
+      g.shadowColor = "rgba(255,190,60,.7)";
+      g.shadowBlur = size * 0.3;
+      each((l, yy) => g.strokeText(l, cx, yy));
+      g.shadowBlur = 0;
+      g.fillStyle = custom ? color : gr;
+      each((l, yy) => g.fillText(l, cx, yy));
+    } else if (skin === "redband" || skin === "navyband") {
+      let red = skin === "redband",
+        sl = size * 0.32,
+        bg = g.createLinearGradient(0, top, 0, top + h);
+      bg.addColorStop(0, red ? "#ef2a40" : "#23408f");
+      bg.addColorStop(1, red ? "#9a0c1e" : "#0d1a4a");
+      g.fillStyle = bg;
+      g.shadowColor = "rgba(0,0,0,.45)";
+      g.shadowBlur = size * 0.25;
+      g.shadowOffsetY = size * 0.06;
+      g.beginPath();
+      g.moveTo(left - size * 0.2 + sl, top);
+      g.lineTo(left + w + size * 0.2 + sl, top);
+      g.lineTo(left + w + size * 0.2 - sl, top + h);
+      g.lineTo(left - size * 0.2 - sl, top + h);
+      g.closePath();
+      g.fill();
+      g.shadowColor = "transparent";
+      g.fillStyle = "#ffcf4a";
+      g.beginPath();
+      g.moveTo(left - size * 0.55 + sl, top);
+      g.lineTo(left - size * 0.3 + sl, top);
+      g.lineTo(left - size * 0.3 - sl, top + h);
+      g.lineTo(left - size * 0.55 - sl, top + h);
+      g.closePath();
+      g.fill();
+      if (!red) {
+        g.fillRect(left - size * 0.2, top + Math.max(1, size * 0.04), w + size * 0.4, Math.max(1.5, size * 0.04));
+        g.fillRect(left - size * 0.2, top + h - Math.max(1, size * 0.04) * 2, w + size * 0.4, Math.max(1.5, size * 0.04));
+      }
+      g.fillStyle = color;
+      g.shadowColor = "rgba(0,0,0,.4)";
+      g.shadowOffsetY = size * 0.05;
+      each((l, yy) => g.fillText(l, cx, yy));
+    } else if (skin === "stamp") {
+      g.save();
+      g.translate(cx, top + h / 2);
+      g.rotate(-0.06);
+      g.fillStyle = custom ? "#c8102e" : style.background && style.background !== "#183633" ? style.background : "#c8102e";
+      rr228(g, -w / 2, -h / 2, w, h, size * 0.12);
+      g.fill();
+      g.strokeStyle = "rgba(255,240,220,.85)";
+      g.lineWidth = Math.max(1.5, size * 0.05);
+      rr228(g, -w / 2 + size * 0.14, -h / 2 + size * 0.14, w - size * 0.28, h - size * 0.28, size * 0.08);
+      g.stroke();
+      g.fillStyle = "rgba(255,235,220,.22)";
+      for (let i = 0; i < 26; i++) {
+        let px = (h228(i + text.length) - 0.5) * w,
+          py = (h228(i + 50) - 0.5) * h;
+        g.beginPath();
+        g.arc(px, py, size * (0.02 + h228(i + 9) * 0.04), 0, TAU);
+        g.fill();
+      }
+      g.restore();
+      g.save();
+      g.translate(cx, top + h / 2);
+      g.rotate(-0.06);
+      g.translate(-cx, -(top + h / 2));
+      g.fillStyle = color;
+      each((l, yy) => g.fillText(l, cx, yy));
+      g.restore();
+    } else if (skin === "nowplaying") {
+      g.fillStyle = "rgba(8,10,24,.78)";
+      rr228(g, left - size * 0.3, top, w + size * 1.6, h, size * 0.22);
+      g.fill();
+      g.fillStyle = "#ffcf4a";
+      g.fillRect(left - size * 0.3, top, Math.max(3, size * 0.1), h);
+      let ts = size * 0.36,
+        tag = "♪ 지금 부르는 곡";
+      g.font = "900 " + ts + "px " + fam;
+      let tw = g.measureText(tag).width + ts;
+      g.fillStyle = "#ffcf4a";
+      rr228(g, left - size * 0.3, top - ts * 1.5, tw, ts * 1.4, ts * 0.3);
+      g.fill();
+      g.fillStyle = "#2a1300";
+      g.textAlign = "left";
+      g.fillText(tag, left - size * 0.3 + ts / 2, top - ts * 0.45);
+      g.textAlign = "center";
+      for (let k = 0; k < 4; k++) {
+        let bh = size * (0.25 + h228(k + 3) * 0.45);
+        g.fillStyle = "#ff5f8a";
+        g.fillRect(left + w + size * 0.45 + k * size * 0.17, top + h / 2 + size * 0.35 - bh, size * 0.11, bh);
+      }
+      setF();
+      g.fillStyle = color;
+      each((l, yy) => g.fillText(l, cx, yy));
+    } else if (skin === "neon") {
+      let c = color;
+      g.strokeStyle = c;
+      g.lineWidth = Math.max(2, size * 0.06);
+      g.shadowColor = c;
+      g.shadowBlur = size * 0.5;
+      rr228(g, left - size * 0.2, top - size * 0.05, w + size * 0.4, h + size * 0.1, size * 0.3);
+      g.stroke();
+      g.lineWidth = Math.max(1.5, size * 0.07);
+      for (let pass = 0; pass < 2; pass++) each((l, yy) => g.strokeText(l, cx, yy));
+      g.shadowBlur = size * 0.15;
+      g.fillStyle = "#fff4fb";
+      each((l, yy) => g.fillText(l, cx, yy));
+    } else if (skin === "brush") {
+      g.strokeStyle = style.background && style.background !== "#183633" ? style.background : "#14110f";
+      g.lineCap = "round";
+      let strands = 12,
+        L = left - size * 0.55,
+        R = left + w + size * 0.55;
+      for (let i = 0; i < strands; i++) {
+        let v = i / (strands - 1),
+          yy = top - size * 0.05 + v * (h + size * 0.1),
+          edge = Math.abs(v - 0.5) * 2,
+          sx = L + (h228(i + 3) * 0.6 + edge * edge * 0.9) * size,
+          ex = R - (h228(i + 11) * 0.9 + edge * 1.2) * size;
+        g.lineWidth = (h / strands) * (1.5 - edge * 0.5);
+        g.globalAlpha = 0.92 - (i % 3 === 2 ? 0.25 : 0);
+        g.beginPath();
+        g.moveTo(sx, yy + (h228(i) - 0.5) * size * 0.1);
+        g.quadraticCurveTo((sx + ex) / 2, yy - size * 0.06 + (h228(i + 7) - 0.5) * size * 0.08, ex, yy + size * 0.05);
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+      g.fillStyle = color;
+      each((l, yy) => g.fillText(l, cx, yy));
+    } else if (skin === "retro") {
+      g.lineJoin = "round";
+      g.fillStyle = "#d23a2a";
+      each((l, yy) => g.fillText(l, cx + size * 0.08, yy + size * 0.08));
+      g.lineWidth = Math.max(2, size * 0.12);
+      g.strokeStyle = "#1b2d6b";
+      each((l, yy) => g.strokeText(l, cx, yy));
+      g.fillStyle = color;
+      each((l, yy) => g.fillText(l, cx, yy));
+    } else if (skin === "flower") {
+      g.fillStyle = style.background && style.background !== "#183633" ? style.background : "#ff6fa5";
+      g.strokeStyle = "#ffffff";
+      g.lineWidth = Math.max(2, size * 0.07);
+      rr228(g, left - size * 0.5, top, w + size, h, h / 2);
+      g.fill();
+      g.stroke();
+      for (let s of [-1, 1]) {
+        let fx = cx + s * (w / 2 + size * 0.5),
+          fy = top + h / 2,
+          r = size * 0.32;
+        g.fillStyle = "#ffffff";
+        for (let p = 0; p < 5; p++) {
+          let a = (p / 5) * TAU;
+          g.beginPath();
+          g.arc(fx + Math.cos(a) * r * 0.6, fy + Math.sin(a) * r * 0.6, r * 0.48, 0, TAU);
+          g.fill();
+        }
+        g.fillStyle = "#ffd23f";
+        g.beginPath();
+        g.arc(fx, fy, r * 0.36, 0, TAU);
+        g.fill();
+      }
+      g.lineWidth = Math.max(2, size * 0.09);
+      g.strokeStyle = "#b0185a";
+      g.lineJoin = "round";
+      each((l, yy) => g.strokeText(l, cx, yy));
+      g.fillStyle = color;
+      each((l, yy) => g.fillText(l, cx, yy));
+    } else {
+      g.fillStyle = color;
+      each((l, yy) => g.fillText(l, cx, yy));
+    }
+  }
+
+  const isTrot228 = (s) => String(s?.skin || "").startsWith("tr228-");
+  const trotThumbCache228 = new Map();
+  function trotThumb228(item, W, H, label) {
+    let key = item.id + ":" + W + ":" + label;
+    if (trotThumbCache228.has(key)) return trotThumbCache228.get(key);
+    let c = document.createElement("canvas");
+    c.width = W;
+    c.height = H;
+    let g = c.getContext("2d"),
+      bg = g.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, "#120a22");
+    bg.addColorStop(1, "#3a1530");
+    g.fillStyle = bg;
+    g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 26; i++) {
+      g.fillStyle = "rgba(255,210,120,.35)";
+      g.fillRect(h228(i) * W, h228(i + 30) * H, 2, 2);
+    }
+    let s = item.style,
+      size = H * 0.2;
+    trotText228(g, W, label, size, s.color, H * 0.58, s);
+    let url = c.toDataURL("image/png");
+    trotThumbCache228.set(key, url);
+    return url;
+  }
+  const TEXT228 = [
+    ["황금 곡 제목", "goldtitle", "#ffe07a", "serif", "glow"],
+    ["황금 곡 제목 · 고딕", "goldtitle", "#ffe07a", "sans-serif", "rise"],
+    ["빨간 띠 가수 이름", "redband", "#ffffff", "sans-serif", "slide"],
+    ["남색 띠 가수 이름", "navyband", "#ffe48a", "sans-serif", "slide"],
+    ["낙관 도장", "stamp", "#fff3e0", "serif", "impact"],
+    ["♪ 지금 부르는 곡", "nowplaying", "#ffffff", "sans-serif", "slide"],
+    ["무대 네온 핑크", "neon", "#ff4fb0", "sans-serif", "glow"],
+    ["무대 네온 블루", "neon", "#3fc8ff", "sans-serif", "glow"],
+    ["먹 붓 띠", "brush", "#ffffff", "serif", "fade"],
+    ["옛날 가요 레트로", "retro", "#fff1c9", "serif", "bounce"],
+    ["꽃 리본 자막", "flower", "#ffffff", "sans-serif", "bounce"],
+  ];
+  TEXT228.forEach(([name, skin, color, font, motion]) =>
+    textLibrary.push({ name, category: "트로트 방송", style: { skin: "tr228-" + skin, color, font, size: 68, motion, background: "#183633" }, id: "trot228-" + skin + "-" + font + "-" + name }),
+  );
+  [
+    ["♪ 지금 부르는 곡 자막", "nowplaying", "#ffffff"],
+    ["빨간 띠 자막", "redband", "#ffffff"],
+    ["남색 띠 자막", "navyband", "#ffe48a"],
+    ["꽃 리본 자막", "flower", "#ffffff"],
+    ["황금 테 자막", "goldtitle", "#ffe07a"],
+  ].forEach(([name, skin, color]) =>
+    captionLibrary.push({ name, category: "트로트 방송", style: { skin: "tr228-" + skin, color, font: "sans-serif", size: 40, background: "#183633" }, id: "trotcap228-" + skin }),
+  );
+
+  // ───────────── 노래방 가사 색 조합 ─────────────
+  const KARAOKE228 = [
+    ["노래방 클래식", "#ffffff", "#3fa9ff"],
+    ["흰 → 노랑", "#ffffff", "#ffd23f"],
+    ["흰 → 분홍", "#ffffff", "#ff4fa3"],
+    ["파랑 → 노랑", "#7fc8ff", "#ffe14d"],
+    ["황금", "#fff3c4", "#ffb020"],
+    ["민트", "#ffffff", "#3fe0b0"],
+    ["빨강 → 흰", "#ff5a6e", "#ffffff"],
+    ["보라 → 분홍", "#c9b3ff", "#ff6fd0"],
+  ];
+  try {
+    let box = lyricDialog143.querySelector(".export-options123");
+    if (box && !lyricDialog143.querySelector(".ly-kara228")) {
+      let row = document.createElement("div");
+      row.className = "ly-kara228";
+      row.innerHTML = `<span>🎤 노래방 색 조합</span>` + KARAOKE228.map(([n, a, b], i) => `<button type="button" data-k="${i}" title="${n}" style="--a:${a};--b:${b}"><i></i>${n}</button>`).join("");
+      box.after(row);
+      row.addEventListener("click", (e) => {
+        let b = e.target.closest("button[data-k]");
+        if (!b) return;
+        let [, a, c] = KARAOKE228[+b.dataset.k];
+        let st = lyV143("ly143-style"),
+          col = lyV143("ly143-color"),
+          acc = lyV143("ly143-accent");
+        st.value = "karaoke";
+        col.value = a;
+        acc.value = c;
+        for (let el of [st, col, acc]) {
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        row.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+      });
+    }
+  } catch (e) {
+    console.warn("v228 karaoke presets", e);
+  }
+  return { MOOD228, MOOD_KINDS228, trotText228, isTrot228, trotThumb228 };
+})();
+

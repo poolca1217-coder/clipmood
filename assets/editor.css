@@ -6114,3 +6114,10 @@ body.clean-ui190 .leftbody193 .direct-preset-card,body.clean-ui190 .leftbody193 
 #directPhotoGrid .transition-art69, #directPhotoGrid .transition-art69 *, #directPhotoGrid .native-option-photo, #directPhotoGrid img { pointer-events:none; -webkit-user-drag:none; }
 #effectTimingTracks .track-type90-transition { display:none !important; }
 #directPhotoGrid .direct-photo-art, #directPhotoGrid .direct-photo-art *, #directPhotoGrid img { pointer-events:none; -webkit-user-drag:none; }
+
+/* Supplied v228 celebration, holiday and karaoke controls. */
+.ly-kara228{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 4px}
+.ly-kara228>span{font-weight:800;font-size:12px;color:#ffd166;margin-right:4px}
+.ly-kara228 button{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid #3a4560;background:#161d2e;color:#e8ecf6;font-size:12px;cursor:pointer}
+.ly-kara228 button i{width:26px;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--b) 50%,var(--a) 50%);box-shadow:0 0 0 1px #0006}
+.ly-kara228 button:hover,.ly-kara228 button.on{border-color:#ffd166;background:#2a2340}
