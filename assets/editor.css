@@ -5677,7 +5677,7 @@ header button:not(.primary) {
 .save-menu-box154 button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: 8px 10px; width: 100%; }
 .save-menu-box154 button small { font-size: 11px; color: #aaa; font-weight: 400; }
 header { gap: 8px !important; flex-wrap: nowrap; }
-header .editor-navigation { flex-shrink: 0; }
+header .editor-navigation { flex-shrink: 1; min-width: 0; }
 
 /* ═════ v155 화면 다듬기 ═════ */
 :root { --ui155-line: rgba(255,255,255,.08); --ui155-soft: rgba(255,255,255,.035); --ui155-acc: #c084fc; --ui155-mute: #9b93ad; }
@@ -5953,10 +5953,10 @@ aside.settings label.field:has(> input[type="color"]) > input[type="text"] { mar
 .chip-x172:hover { background: #ff5a6e; color: #fff; }
 /* v173 · 미리보기 띠를 떠 있게 (아래 칸이 움직이지 않음) */
 .monitor.has-float-bar173 { position: relative; }
-.monitor.has-float-bar173 > #optionPreviewBar73 { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 20; width: max-content; max-width: calc(100% - 16px); flex-wrap: nowrap; padding: 6px 8px 6px 14px; border-radius: 999px; background: rgba(30, 20, 52, 0.88); border: 1px solid #7a52c0; color: #e9ddff; box-shadow: 0 6px 18px rgba(0,0,0,.45); backdrop-filter: blur(6px); }
-.monitor.has-float-bar173 > #optionPreviewBar73[hidden] { display: none !important; }
-.monitor.has-float-bar173 > #optionPreviewBar73 span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.monitor.has-float-bar173 > #optionPreviewBar73 button { border-radius: 999px; padding: 5px 12px; }
+header #optionPreviewBar73 { position: static; flex: 0 1 360px; min-width: 226px; max-width: 360px; flex-wrap: nowrap; padding: 0; border-radius: 9px; background: transparent; color: var(--c-text, #e9ddff); gap: 4px; }
+header #optionPreviewBar73[hidden] { display: none !important; }
+header #optionPreviewBar73 span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+header #optionPreviewBar73 button { flex-shrink: 0; border-radius: 9px; padding: 5px 8px; }
 .frame-color167 .fs174 { display: grid; gap: 6px; padding-top: 8px; margin-top: 2px; border-top: 1px dashed #4a3770; }
 .frame-color167 .fs-on { display: flex; gap: 6px; align-items: center; font-size: 13px; }
 .frame-color167 .fs-seg { display: flex; gap: 4px; }

@@ -53,7 +53,7 @@
  * ■ 큰 자료(사진·효과음)는 위쪽 <script>의 *_DATA 상수에 있습니다.
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
-const APP_VERSION = "v227";
+const APP_VERSION = "v228";
 const $ = (id) => document.getElementById(id),
   canvas = $("canvas");
 $("appVersion").textContent = APP_VERSION;
@@ -20751,7 +20751,7 @@ const previewLabel73 = document.createElement("span"),
 previewAdd73.textContent = "＋ 타임라인에 추가";
 previewClose73.textContent = "미리보기 닫기";
 previewBar73.append(previewLabel73, previewAdd73, previewClose73);
-document.querySelector(".preview-top").after(previewBar73);
+document.querySelector("header").append(previewBar73);
 function stopOptionPreview73(redraw = true) {
   ++optionPreviewToken73;
   optionPreview73 = null;
@@ -39248,14 +39248,10 @@ renderLayerChips120 = function () {
 try { renderLayerChips120(); } catch {}
 
 
-// v173 · 옵션을 눌러 미리 볼 때 미리보기 칸이 아래로 밀리지 않게
-//        「미리보기 전용 · 타임라인에 추가 · 닫기」 줄을 화면 위에 떠 있는 띠로 바꿉니다.
+// 옵션 미리보기 조작은 저장 메뉴 옆에 두어 영상 위를 가리지 않습니다.
 {
-  let mon = document.querySelector(".monitor");
-  if (mon) {
-    mon.classList.add("has-float-bar173");
-    mon.append(previewBar73);
-  }
+  let saveMenu = document.querySelector(".save-menu154");
+  if (saveMenu) saveMenu.after(previewBar73);
 }
 
 
