@@ -5953,10 +5953,12 @@ aside.settings label.field:has(> input[type="color"]) > input[type="text"] { mar
 .chip-x172:hover { background: #ff5a6e; color: #fff; }
 /* v173 · 미리보기 띠를 떠 있게 (아래 칸이 움직이지 않음) */
 .monitor.has-float-bar173 { position: relative; }
-header #optionPreviewBar73 { position: static; flex: 0 1 360px; min-width: 226px; max-width: 360px; flex-wrap: nowrap; padding: 0; border-radius: 9px; background: transparent; color: var(--c-text, #e9ddff); gap: 4px; }
+header #optionPreviewBar73 { position: static; flex: 0 1 360px; min-width: 240px; max-width: 360px; flex-wrap: nowrap; padding: 0; border-radius: 9px; background: transparent; color: var(--c-text, #e9ddff); gap: 4px; }
 header #optionPreviewBar73[hidden] { display: none !important; }
 header #optionPreviewBar73 span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 header #optionPreviewBar73 button { flex-shrink: 0; border-radius: 9px; padding: 5px 8px; }
+header:has(#optionPreviewBar73:not([hidden])) #autosaveBadge135 { max-width: 40px; overflow: hidden; white-space: nowrap; flex-shrink: 0; }
+header:has(#optionPreviewBar73:not([hidden])) #projectName { max-width: 110px; min-width: 60px; }
 .frame-color167 .fs174 { display: grid; gap: 6px; padding-top: 8px; margin-top: 2px; border-top: 1px dashed #4a3770; }
 .frame-color167 .fs-on { display: flex; gap: 6px; align-items: center; font-size: 13px; }
 .frame-color167 .fs-seg { display: flex; gap: 4px; }
