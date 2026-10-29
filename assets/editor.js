@@ -54,7 +54,7 @@
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
 let suppliedDesigns229 = null;
-const APP_VERSION = "v229";
+const APP_VERSION = "v230";
 const $ = (id) => document.getElementById(id),
   canvas = $("canvas");
 $("appVersion").textContent = APP_VERSION;
@@ -13914,6 +13914,7 @@ function presetForOption(tab, item) {
     result = { [paletteKeys[tab]]: item.value };
   }
   if (tab === "스티커") Object.assign(result, { stickerX: 0.8, stickerY: 0.25, stickerSize: 100 });
+  if (tab === "스티커" && item.design?.style === "coolSmoke230") Object.assign(result, { stickerX: 0.5, stickerY: 0.72 });
   if (tab === "효과" && weatherPresets53.has(item.value)) result.effectSpeed = 1;
   if (tab === "효과" && weatherPresets53.has(item.value))
     Object.assign(result, { effectSpeed: 1, effectThickness: 1, effectAmount: 1 });
@@ -21110,6 +21111,11 @@ const controlDefs75 = {
     ["세로 위치", "y", 0, 100, 1],
     ["불투명도", "opacity", 0, 100, 1],
     ["움직임 속도", "speed", 0.1, 5, 0.05],
+    ["연기 길이 %", "smokeLength", 30, 130, 1],
+    ["연기 양 %", "smokeAmount", 10, 200, 1],
+    ["연기 굵기 %", "smokeWidth", 25, 200, 1],
+    ["연기 방향 °", "smokeAngle", -40, 40, 1],
+    ["연기 색상", "smokeHue", 0, 360, 1],
   ],
   비주얼라이저: [
     ["크기 %", "scale", 10, 250, 1],
@@ -21199,6 +21205,11 @@ function optionValues75(t) {
       y: (p.stickerY ?? 0.55) * 100,
       opacity: (p.stickerOpacity75 ?? 1) * 100,
       speed: p.stickerSpeed75 ?? 1,
+      smokeLength: p.stickerDesign?.smokeLength ?? 100,
+      smokeAmount: p.stickerDesign?.smokeAmount ?? 100,
+      smokeWidth: p.stickerDesign?.smokeWidth ?? 100,
+      smokeAngle: p.stickerDesign?.smokeAngle ?? 0,
+      smokeHue: p.stickerDesign?.smokeHue ?? 210,
     };
   if (t.tab === "비주얼라이저") {
     let v = p.visualizer || {};
@@ -21272,7 +21283,8 @@ function editOption75(key, value) {
       opacity: "stickerOpacity75",
       speed: "stickerSpeed75",
     };
-    patch[keys[key]] = ["x", "y", "opacity"].includes(key) ? value / 100 : value;
+    if (key.startsWith("smoke") && p.stickerDesign?.style === "coolSmoke230") patch.stickerDesign = { ...p.stickerDesign, [key]: value };
+    else if (keys[key]) patch[keys[key]] = ["x", "y", "opacity"].includes(key) ? value / 100 : value;
   } else if (t.tab === "비주얼라이저")
     patch.visualizer = {
       ...p.visualizer,
@@ -21334,7 +21346,7 @@ function syncOptionControls75() {
       defs = t && controlDefs75[t.tab];
     optionPanel75.hidden = !defs || audioWorkspaceActive71();
     for (let [id, f] of optionFields75) {
-      f.row.hidden = !t || !id.startsWith(t.tab + ":");
+      f.row.hidden = !t || !id.startsWith(t.tab + ":") || (id.startsWith("스티커:smoke") && (t.item?.preset || t.c).stickerDesign?.style !== "coolSmoke230");
     }
     if (!!defs) {
       optionHeading75.textContent = t.tab + " 조절";
@@ -45565,4 +45577,110 @@ suppliedDesigns229 = (function () {
   }
   return { MOOD228, MOOD_KINDS228, trotText228, isTrot228, trotThumb228 };
 })();
+
+// Transparent vector animals: deterministic breathing and forward-moving smoke.
+function paintCoolAnimal230(g, d, W, H, t) {
+  const k = Math.min(W / 480, H / 300), phase = ((t % 5) + 5) % 5,
+    inhale = phase < 1 ? Math.sin(phase * Math.PI) : 0,
+    puff = phase > 1 && phase < 3.6 ? Math.sin((phase - 1) / 2.6 * Math.PI) : 0,
+    animal = d.animal || "cat", fur = d.fur || "#f3ad64", ink = "#302b40";
+  const ellipse = (x,y,rx,ry,fill,stroke=ink) => {
+    g.beginPath();g.ellipse(x,y,rx,ry,0,0,Math.PI*2);g.fillStyle=fill;g.fill();
+    if(stroke){g.strokeStyle=stroke;g.lineWidth=3;g.stroke();}
+  };
+  const path = (points,fill) => {
+    g.beginPath();g.moveTo(...points[0]);for(const p of points.slice(1))g.lineTo(...p);g.closePath();
+    g.fillStyle=fill;g.fill();g.strokeStyle=ink;g.lineWidth=3;g.stroke();
+  };
+  g.save();
+  try {
+    g.scale(k,k);
+    g.lineJoin="round";g.lineCap="round";
+    // Smoke particles keep their age across the loop boundary; no frame-random flicker.
+    const reach=Math.max(.3,Math.min(1.3,(d.smokeLength??100)/100))*205,
+      amount=Math.max(.1,Math.min(2,(d.smokeAmount??100)/100)),
+      thick=Math.max(.25,Math.min(2,(d.smokeWidth??100)/100)),
+      hue=Math.max(0,Math.min(360,d.smokeHue??210)),count=Math.round(72*amount),cycle=Math.floor(t/5);
+    g.save();g.translate(-43,-9);g.rotate((d.smokeAngle||0)*Math.PI/180);
+    for(let c=cycle-1;c<=cycle;c++)for(let i=0;i<count;i++){
+      const age=t-(c*5+1+i/Math.max(1,count-1)*2.15);
+      if(age<0||age>2.9)continue;
+      const u=age/2.9,fade=Math.min(1,age/.12)*Math.pow(1-u,.65),
+        x=u*reach,y=Math.sin(u*8.5-t*.9)*u*18+Math.sin(i*2.4)*u*13-u*u*20,
+        r=(1.6+u*16)*thick;
+      g.globalAlpha=.07*fade;ellipse(x,y,r*1.4,r,`hsl(${hue},22%,91%)`,null);
+      g.globalAlpha=.025*fade;ellipse(x-r*.4,y-r*.25,r*1.2,r*.55,"#ffffff",null);
+    }
+    g.restore();g.globalAlpha=1;
+    // A grounded, plush silhouette and a gentle breathing motion.
+    g.save();g.translate(0,Math.sin(t*2)*1.5);
+    if(animal==="cat"||animal==="fox"){
+      g.beginPath();g.moveTo(-162,86);g.bezierCurveTo(-220,100,-230,40,-202,29);
+      g.strokeStyle=ink;g.lineWidth=24;g.stroke();g.strokeStyle=fur;g.lineWidth=18;g.stroke();
+      if(animal==="fox"){g.beginPath();g.moveTo(-204,31);g.lineTo(-211,39);g.strokeStyle="#fff1d8";g.lineWidth=17;g.stroke();}
+    }
+    ellipse(-128,64,49+inhale*2,49+inhale*2,animal==="panda"?ink:fur);
+    ellipse(-128,71,28,32,d.belly||"#fff0d7",null);
+    ellipse(-155,106,23,11,animal==="panda"?ink:fur);ellipse(-104,106,23,11,animal==="panda"?ink:fur);
+    if(animal==="rabbit"){
+      ellipse(-157,-91,15,42,fur);ellipse(-114,-98,15,45,fur);
+      ellipse(-157,-94,6,27,"#f6a4bd",null);ellipse(-114,-101,6,29,"#f6a4bd",null);
+    }else if(animal==="cat"||animal==="fox"){
+      path([[-177,-44],[-172,-98],[-139,-66]],fur);
+      path([[-125,-67],[-89,-96],[-85,-43]],fur);
+      path([[-169,-57],[-168,-84],[-149,-65]],"#f5a1ac");
+      path([[-118,-65],[-96,-83],[-95,-54]],"#f5a1ac");
+    }else if(animal==="dog"){
+      g.save();g.translate(-174,-38);g.rotate(.25);ellipse(0,0,17,38,"#a77961");g.restore();
+      g.save();g.translate(-85,-38);g.rotate(-.25);ellipse(0,0,17,38,"#a77961");g.restore();
+    }else{
+      ellipse(-168,-62,22,23,animal==="panda"?ink:fur);
+      ellipse(-91,-62,22,23,animal==="panda"?ink:fur);
+      if(animal!=="panda"){ellipse(-168,-62,11,12,"#dc9e9f",null);ellipse(-91,-62,11,12,"#dc9e9f",null);}
+    }
+    ellipse(-130,-27,54+inhale,48,fur);
+    if(animal==="cat")for(const x of [-143,-130,-117]){
+      g.strokeStyle="#b97945";g.lineWidth=4;g.beginPath();g.moveTo(x,-69);g.lineTo(x+(x+130)*.12,-55);g.stroke();
+    }
+    if(animal==="fox"){
+      path([[-180,-20],[-132,1],[-81,-21],[-93,14],[-130,23],[-165,12]],"#fff0dc");
+    }else ellipse(-107,-6,27+puff*2,20,"#fff1dd",null);
+    ellipse(-165,-3,10,6,"#f4a2ac",null);ellipse(-90,1,8+puff*2,6+puff,"#f4a2ac",null);
+    // Oversized glossy sunglasses with small reflected highlights.
+    g.fillStyle=ink;g.fillRect(-177,-43,94,6);
+    for(const x of [-157,-111]){
+      g.beginPath();g.roundRect(x-21,-46,42,29,10);g.fillStyle=ink;g.fill();
+      const glass=g.createLinearGradient(x-16,-44,x+15,-20);glass.addColorStop(0,"#223652");glass.addColorStop(1,"#0d1424");
+      g.beginPath();g.roundRect(x-16,-42,32,20,6);g.fillStyle=glass;g.fill();
+      g.strokeStyle="#8ee9ff";g.lineWidth=3;g.beginPath();g.moveTo(x-10,-38);g.lineTo(x-3,-33);g.stroke();
+      g.strokeStyle="#ffffff";g.lineWidth=2;g.beginPath();g.moveTo(x+2,-38);g.lineTo(x+5,-36);g.stroke();
+    }
+    ellipse(-112,-7,5,3.5,ink,null);
+    g.strokeStyle=ink;g.lineWidth=2;g.beginPath();g.moveTo(-105,2);g.quadraticCurveTo(-98,9,-89,3);g.stroke();
+    if(animal==="cat")for(const y of [-7,1]){
+      g.beginPath();g.moveTo(-172,y);g.lineTo(-187,y-4);g.stroke();
+    }
+    // Paw, cigarette and a tiny ember; the smoke exits forwards during the exhale.
+    g.save();g.translate(-88,20+inhale*2);g.rotate(-.65);
+    ellipse(0,0,15,23,animal==="panda"?ink:fur);ellipse(1,-5,7,8,d.belly||"#fff0d7",null);g.restore();
+    g.save();g.translate(-87,-8);g.rotate(-.06+inhale*.025);
+    g.fillStyle="#c28b57";g.beginPath();g.roundRect(0,-3.5,12,7,2);g.fill();
+    g.fillStyle="#faf3e6";g.fillRect(12,-3.5,25,7);
+    g.fillStyle="#fd6b43";g.fillRect(37,-3.5,4,7);
+    g.fillStyle=`rgba(255,197,79,${.5+inhale*.5})`;g.fillRect(40,-2.5,2,5);g.restore();
+    // A small gold collar tag gives each animal a finished character design.
+    g.strokeStyle=d.accent||"#63c7d0";g.lineWidth=9;g.beginPath();g.moveTo(-164,21);g.quadraticCurveTo(-130,37,-98,22);g.stroke();
+    ellipse(-129,33,7,8,"#ffd36a");
+    g.restore();
+  } finally { g.restore(); }
+}
+socialPainters125.coolSmoke230 = paintCoolAnimal230;
+for (const [animal,name,fur,belly,accent] of [
+  ["cat","고양이","#f3ad64","#fff0d7","#64ced6"],
+  ["dog","강아지","#e4bb83","#fff1dc","#ec8299"],
+  ["rabbit","토끼","#f7e7e5","#ffffff","#b79be7"],
+  ["bear","곰","#b98869","#e8c3a0","#f5b95e"],
+  ["fox","여우","#e89757","#fff0dc","#75bda4"],
+  ["panda","판다","#f0efea","#ffffff","#e482a0"],
+]) stickerLibrary.push({id:"cool-smoke230-"+animal,name:"선글라스 "+name+" · 연기 내뿜기",category:"선글라스 동물 · 연기",emoji:name,design:{style:"coolSmoke230",animal,fur,belly,accent,w:4.8,h:3,color:accent,name}});
 
