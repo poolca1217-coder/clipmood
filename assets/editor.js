@@ -13471,7 +13471,8 @@ function richOptionThumbnail(tab, item) {
       x.fillRect(0, 0, 480, 270);
       if (item.design?.style) {
         let d = item.design,
-          k = Math.min(400 / (d.w || 3), 112 / (d.h || 1));
+          figurine = ["motion177","dance181","coolSmoke230"].includes(d.style) || d.style === "kr228" && d.kind === "hanbok",
+          k = Math.min(400 / (d.w || 3), (figurine ? 235 : 112) / (d.h || 1));
         x.save();
         x.translate(240, 135);
         paintSocialSticker125(x, d, k * (d.w || 3), k * (d.h || 1), d.style === "subscribe" ? 1.0 : d.style === "bubble" ? 3 : 1.6);
@@ -16619,6 +16620,7 @@ function persistGeometryEdit() {
   c.optionClips = (c.optionClips || []).map((o) =>
     o.id === edit.id ? { ...o, preset: { ...o.preset, ...preset } } : o,
   );
+  syncOptionControls75();
 }
 
 const stickerSizePanel = document.createElement("div");
