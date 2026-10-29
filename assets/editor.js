@@ -54,7 +54,7 @@
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
 let suppliedDesigns229 = null;
-const APP_VERSION = "v231";
+const APP_VERSION = "v232";
 // Embedded atlases load once and are shared by thumbnails, preview and export.
 const figurineStore231 = new Map();
 const figurineReady231 = Promise.all(Object.entries(typeof FIGURINE_ATLASES231 === "undefined" ? {} : FIGURINE_ATLASES231).map(([key, data]) => new Promise(resolve => {
@@ -40974,71 +40974,26 @@ function v181(k, a) {
   return [k * Math.sin(a), Math.cos(a)];
 }
 function pose181(move, t, seed = 0) {
-  let beat = t * 2 + seed,
-    ph = beat * Math.PI,
-    s = Math.sin(ph),
-    P = { x: 0, by: 0, lean: 0, tilt: 0, flip: 1, la: [0.4, 0.6], ra: [0.4, 0.6], ll: 0.12, rl: 0.12, open: s > 0.3 };
-  if (move === "bounce") {
-    P.by = -Math.abs(s) * 6;
-    P.la = [0.5 + 1.1 * Math.max(0, s), 1.2];
-    P.ra = [0.5 + 1.1 * Math.max(0, -s), 1.2];
-    P.tilt = s * 0.1;
-  } else if (move === "wave") {
-    P.lean = Math.sin(ph / 2) * 0.12;
-    P.by = -Math.abs(s) * 3;
-    P.la = [1.6 + Math.sin(ph) * 0.4, Math.sin(ph + 1.2) * 0.9];
-    P.ra = [1.6 - Math.sin(ph + 0.6) * 0.4, Math.sin(ph + 2.2) * 0.9];
-    P.tilt = -P.lean;
-  } else if (move === "disco") {
-    let side = Math.sin(ph / 2) > 0 ? 1 : -1;
-    P.lean = side * 0.1;
-    P.by = -Math.abs(s) * 3;
-    P.la = side > 0 ? [2.6, 0] : [0.7, 1.9];
-    P.ra = side < 0 ? [2.6, 0] : [0.7, 1.9];
-    P.ll = side > 0 ? 0.32 : 0.08;
-    P.rl = side < 0 ? 0.32 : 0.08;
-    P.tilt = side * 0.12;
-  } else if (move === "jump") {
-    let up = Math.max(0, Math.sin(ph / 1)) ** 1.5;
-    P.by = -up * 16;
-    P.la = [0.5 + 2.4 * up, 0.2];
-    P.ra = [0.5 + 2.4 * up, 0.2];
-    P.ll = P.rl = 0.12 + up * 0.35;
-  } else if (move === "side") {
-    let w = Math.sin(ph / 2);
-    P.x = w * 9;
-    P.lean = -w * 0.08;
-    P.by = -Math.abs(s) * 4;
-    P.la = [0.35 + w * 0.7, 0.9];
-    P.ra = [0.35 - w * 0.7, 0.9];
-    P.ll = 0.12 + Math.max(0, w) * 0.3;
-    P.rl = 0.12 + Math.max(0, -w) * 0.3;
-    P.tilt = w * 0.1;
-  } else if (move === "heart") {
-    P.lean = Math.sin(ph / 2) * 0.12;
-    P.by = -Math.abs(s) * 2;
-    P.la = [2.35 + Math.sin(ph) * 0.08, 0.95];
-    P.ra = [2.35 - Math.sin(ph) * 0.08, 0.95];
-    P.tilt = P.lean * 0.6;
-    P.hearts = true;
-  } else if (move === "spin") {
-    let cf = Math.cos(t * Math.PI);
-    P.flip = (cf < 0 ? -1 : 1) * (0.45 + 0.55 * Math.abs(cf));
-    P.by = -Math.abs(s) * 3;
-    P.la = [1.5, 0.2];
-    P.ra = [1.5, 0.2];
-  } else if (move === "robot") {
-    let q = Math.floor(beat) % 4,
-      poses = [
-        [[1.57, 1.57], [0.1, 0], 0.15],
-        [[0.1, 0], [1.57, -1.57], -0.15],
-        [[1.57, -1.57], [1.57, 1.57], 0],
-        [[2.9, 0], [0.1, 0], 0.15],
-      ][q];
-    P.la = poses[0];
-    P.ra = poses[1];
-    P.tilt = poses[2];
-    P.by = q % 2 ? -2 : 0;
+  const beat=t*2+seed,ph=beat*Math.PI,s=Math.sin(ph),slow=Math.sin(ph/2),
+    P={x:slow*1.5,by:0,lean:slow*.025,tilt:-slow*.012,flip:1,la:[.4,.6],ra:[.4,.6],ll:.08,rl:.08,open:s>.3,hands:[],feet:[]};
+  let jump=0;
+  if(move==="jump"){jump=Math.max(0,s)**2;P.by=-8*jump;P.lean=0;}
+  // Keep the support foot on the floor; torso sway is applied above the hips.
+  else P.by=0;
+  if(move==="spin"){P.x=slow*3;P.lean=slow*.035;P.flip=.97+.03*Math.cos(ph/2);}
+  for(const k of[-1,1]){
+    let hx=k*25,hy=27,footLift=jump*8,footX=k*10;
+    if(move==="wave"){hx=k*(30+2*Math.sin(ph+k*.6));hy=5+6*Math.sin(ph+k*.8);}
+    else if(move==="disco"){const lift=(1+k*Math.sin(ph/2))/2;hx=k*(22+8*lift);hy=30-40*lift;}
+    else if(move==="heart"){hx=k*4;hy=21+Math.sin(ph)*1.2;P.hearts=true;P.lean=slow*.018;}
+    else if(move==="jump"){hx=k*(24+5*jump);hy=26-35*jump;}
+    else if(move==="side"||move==="spin"){const step=Math.max(0,k*Math.sin(ph));footLift=step*2;footX+=k*step*2;hx=k*(27+2*Math.cos(ph));hy=move==="spin"?15+3*Math.sin(ph+k):24+3*Math.sin(ph+k);}
+    else if(move==="robot"){
+      const poses=[[[29,9],[24,31]],[[24,31],[29,9]],[[31,17],[31,17]],[[25,-8],[24,31]]],step=((beat%4)+4)%4,q=Math.floor(step),f=step-q,u=f*f*f*(10+f*(-15+6*f)),a=poses[q][k<0?0:1],b=poses[(q+1)%4][k<0?0:1];
+      hx=k*(a[0]+(b[0]-a[0])*u);hy=a[1]+(b[1]-a[1])*u;P.lean=0;
+    } else {hx=k*(25+2*Math.cos(ph));hy=25+k*s*5;}
+    P.hands.push([hx,hy]);P.feet.push([footX,73-footLift]);
+    const angles=solveFigJoint232(k,hx-k*15,hy-13,16,14);if(k<0)P.la=angles;else P.ra=angles;
   }
   return P;
 }
@@ -45724,8 +45679,20 @@ function paintFigLimb231(g,key,row,k,x,y,a1,a2,l1,l2,upper,lower,width) {
   const cols=key==="humanKit"?6:4;
   g.save();g.translate(x,y);g.rotate(Math.atan2(uy,ux)-Math.PI/2);g.scale(k,1);
   paintFigPart231(g,key,row*cols+upper,-width/2,-width*.25,width,l1+width*.5,false);g.restore();
+  if(key==="humanKit"&&lower===5){
+    const atlas=figurineStore231.get(key),r=atlas.rects[row*cols+lower],cut=.72,footH=width*.78,ax=hx,ay=hy-footH*.7,len=Math.hypot(ax-ex,ay-ey);
+    g.save();g.translate(ex,ey);g.rotate(Math.atan2(ay-ey,ax-ex)-Math.PI/2);g.scale(k,1);
+    g.drawImage(atlas.image,r[0],r[1],r[2],r[3]*cut,-width*.52,-width*.25,width*1.04,len+width*.3);g.restore();
+    g.save();g.translate(hx,hy);g.scale(k,1);g.drawImage(atlas.image,r[0],r[1]+r[3]*cut,r[2],r[3]*(1-cut),-width*.58,-footH,width*1.16,footH);g.restore();return[hx,hy];
+  }
   g.save();g.translate(ex,ey);g.rotate(Math.atan2(vy,vx)-Math.PI/2);g.scale(k,1);
-  paintFigPart231(g,key,row*cols+lower,-width*.52,-width*.3,width*1.04,l2+width*.8,false);g.restore();return [hx,hy];
+  paintFigPart231(g,key,row*cols+lower,-width*.52,-width*.3,width*1.04,l2+width*.3,false);g.restore();return [hx,hy];
+}
+function solveFigJoint232(k,dx,dy,l1,l2,bendSign=null) {
+  const x=dx*k,dist=Math.max(Math.abs(l1-l2)+.05,Math.min(l1+l2-.05,Math.hypot(x,dy))),
+    bend=(bendSign??(x<0?-1:1))*Math.acos(Math.max(-1,Math.min(1,(dist*dist-l1*l1-l2*l2)/(2*l1*l2)))),
+    shoulder=Math.atan2(x,dy)-Math.atan2(l2*Math.sin(bend),l1+l2*Math.cos(bend));
+  return [shoulder,bend];
 }
 function paintFigDancer231(g,d,t,seed=0) {
   if(!["humanHeads","animalHeads","humanKit","animalKit"].every(key=>figurineStore231.get(key)?.loaded))return false;
@@ -45736,16 +45703,18 @@ function paintFigDancer231(g,d,t,seed=0) {
   try {
     const shadow=g.createRadialGradient(P.x,79,1,P.x,79,30);shadow.addColorStop(0,"rgba(9,5,22,.25)");shadow.addColorStop(1,"rgba(9,5,22,0)");
     g.fillStyle=shadow;g.beginPath();g.ellipse(P.x,79,30,6,0,0,Math.PI*2);g.fill();
-    g.translate(P.x,P.by);g.scale(P.flip,1);g.translate(0,28);g.rotate(P.lean);g.translate(0,-28);
-    for(const [k,a]of[[-1,P.ll],[1,P.rl]]){
-      if(human)paintFigLimb231(g,"humanKit",row,k,k*7,33,a,-a*.7,18,22,4,5,index>=5?12:10);
-      else {g.save();g.translate(k*8,35);g.rotate(-k*a);paintFigPart231(g,"animalKit",row*4+3,-10,-2,20,36,false);g.restore();}
+    g.translate(P.x,P.by);g.scale(P.flip,1);
+    for(let i=0;i<2;i++){
+      const k=i===0?-1:1,[fx,fy]=P.feet[i],footX=(fx-P.x)/P.flip,footY=fy-P.by;
+      if(human){const a=solveFigJoint232(k,footX-k*7,footY-33,18,22,-1);paintFigLimb231(g,"humanKit",row,k,k*7,33,a[0],a[1],18,22,4,5,index>=5?12:10);}
+      else paintFigPart231(g,"animalKit",row*4+3,footX-10,35,20,Math.max(30,footY-35),false);
     }
+    g.translate(0,28);g.rotate(P.lean);g.translate(0,-28);
     // Long hair is behind the costume; the chin meets the neck rather than the image edge.
     paintFigHead231(g,human,index,0,5,human?66:63,P.tilt);
     paintFigPart231(g,human?"humanKit":"animalKit",human?row*6+1:row*4,-22,3,44,human?43:41,false);
     const hands=[];
-    for(const[k,a]of[[-1,P.la],[1,P.ra]])hands.push(paintFigLimb231(g,human?"humanKit":"animalKit",row,k,k*(human?15:17),human?13:14,a[0],a[1],human?16:13,human?14:12,human?2:1,human?3:2,human?11:14));
+    for(let i=0;i<2;i++){const k=i===0?-1:1,sx=k*(human?15:17),sy=human?13:14,l1=human?16:13,l2=human?14:12,target=P.hands[i],a=solveFigJoint232(k,target[0]-sx,target[1]-sy,l1,l2);hands.push(paintFigLimb231(g,human?"humanKit":"animalKit",row,k,sx,sy,a[0],a[1],l1,l2,human?2:1,human?3:2,human?11:14));}
     if(d.mic&&human){const[hx,hy]=hands[1];g.save();g.translate(hx,hy);g.rotate(-.25);const metal=g.createLinearGradient(-3,0,3,0);metal.addColorStop(0,"#191520");metal.addColorStop(.45,"#c4c9db");metal.addColorStop(1,"#343141");g.fillStyle=metal;g.beginPath();g.roundRect(-2,-4,4,13,2);g.fill();g.fillStyle="#a9b0c7";g.beginPath();g.ellipse(0,-6,4,5,0,0,Math.PI*2);g.fill();g.restore();}
     if(P.hearts){g.save();g.fillStyle="#ff398e";g.globalAlpha=.55+.35*Math.sin(t*4)**2;g.font="15px sans-serif";g.textAlign="center";g.fillText("♥",0,-64-Math.sin(t*3)*3);g.restore();}
   } finally {g.restore();}
@@ -45761,25 +45730,29 @@ function paintFigVehicle231(g,d,W,H,t) {
   g.save();
   try {
     g.scale(Math.min(W/225,H/205),Math.min(W/225,H/205));
-    g.translate(land?Math.sin(t*2)*2:Math.sin(t*.8)*3,land?Math.sin(t*8)*.65:Math.sin(t*1.6)*3);
-    if(!land)g.rotate(Math.sin(t*1.5)*.025);
+    const fixedRide=["bike","motor","rocket"].includes(d.vehicle);
+    if(!fixedRide){g.translate(land?Math.sin(t*2)*2:Math.sin(t*.8)*3,land?Math.sin(t*8)*.65:Math.sin(t*1.6)*3);if(!land)g.rotate(Math.sin(t*1.5)*.025);}
     const rider=()=>{
-      if(open)for(const k of[-1,1]){g.save();g.translate(sx+k*8,sy-6);const pedal=d.vehicle==="bike"?-.35+Math.sin(t*7+k*Math.PI)*.6:d.vehicle==="motor"?-.9+Math.sin(t*5)*.04:k*(.15+Math.sin(t*7+k)*.18);g.rotate(pedal);paintFigPart231(g,"animalKit",row*4+3,-9,0,18,31,false);g.restore();}
+      if(open)for(const k of[-1,1]){g.save();g.translate(sx+k*8,sy-6);g.rotate(d.vehicle==="bike"?-.55:d.vehicle==="motor"?-.9:k*.2);paintFigPart231(g,"animalKit",row*4+3,-9,0,18,31,false);g.restore();}
       paintFigPart231(g,"animalKit",row*4,sx-22,sy-47,44,47,false);
-      if(open)for(const k of[-1,1]){const steering=d.vehicle!=="skate";paintFigLimb231(g,"animalKit",row,k,sx+k*15,sy-37,steering?k*1.6:.6+Math.sin(t*4+k)*.08,steering?-.25:.7,15,14,1,2,13);}
+      if(open)for(const k of[-1,1]){const steering=d.vehicle!=="skate";paintFigLimb231(g,"animalKit",row,k,sx+k*15,sy-37,steering?k*1.6:.6,steering?-.25:.7,15,14,1,2,13);}
     };
     if(!open)rider();paintFigPart231(g,"vehicles",index,x,y,width,height,false);if(open)rider();
     const cabin=["rocket","ufo","sub","heli","plane"].includes(d.vehicle);
-    paintFigHead231(g,false,pet,sx,cabin?sy-7:sy-43,open?65:cabin?40:52,Math.sin(t*2)*.04);
+    paintFigHead231(g,false,pet,sx,cabin?sy-7:sy-43,open?65:cabin?40:52,0);
     // Rotate sampled wheel spokes in place; keep the toy tyre and body geometry intact.
-    const wheels={bike:[[78,183,30],[264,197,35]],motor:[[478,219,15],[662,232,22]],kick:[[840,185,15],[1040,228,20]],car:[[1194,168,14],[1337,210,22]],train:[[79,454,18],[145,464,17],[203,483,12]],skate:[[545,478,12],[711,410,12]]}[d.vehicle]||[];
+    const wheels={bike:[[90,181,30],[267,206,35]],motor:[[483,214,17],[672,226,23]],kick:[[840,185,15],[1040,228,20]],car:[[1194,168,14],[1337,210,22]],train:[[79,454,18],[145,464,17],[203,483,12]],skate:[[545,478,12],[711,410,12]]}[d.vehicle]||[];
     for(const[wx,wy,rad]of wheels){const px=x+(wx-r[0])/r[2]*width,py=y+(wy-r[1])/r[3]*height,rr=rad/r[2]*width;g.save();g.beginPath();g.arc(px,py,rr,0,Math.PI*2);g.clip();g.translate(px,py);g.rotate(t*9);paintFigPart231(g,"vehicles",index,x-px,y-py,width,height,false);g.restore();}
     if(d.vehicle==="heli"||d.vehicle==="plane"){
       const px=d.vehicle==="heli"?x+width*.48:x+width*.85,py=d.vehicle==="heli"?y+height*.07:y+height*.49;
       g.save();g.translate(px,py);g.rotate(t*25);g.strokeStyle="rgba(222,236,250,.65)";g.lineWidth=2;
       for(let n=0;n<3;n++){g.rotate(Math.PI*2/3);g.beginPath();g.moveTo(0,-3);g.lineTo(0,-(d.vehicle==="heli"?30:15));g.stroke();}g.restore();
     }
-    if(d.vehicle==="rocket"||d.vehicle==="ufo"){
+    if(d.vehicle==="rocket"){
+      g.save();g.translate(x+width*.15,y+height*.9);g.rotate(2.42);
+      const reach=27+3*Math.sin(t*9),flame=g.createLinearGradient(0,0,reach,0);flame.addColorStop(0,"#fff9d1");flame.addColorStop(.25,"#ffd36b");flame.addColorStop(.65,"#ff9264");flame.addColorStop(1,"rgba(255,82,174,0)");
+      g.fillStyle=flame;g.globalAlpha=.85;g.beginPath();g.moveTo(0,-4);g.bezierCurveTo(11,-7,reach*.8,-2,reach,0);g.bezierCurveTo(reach*.8,2,11,7,0,4);g.closePath();g.fill();g.restore();
+    } else if(d.vehicle==="ufo"){
       for(let n=0;n<9;n++){const u=(t*.8+n/9)%1;g.globalAlpha=(1-u)*.7;g.fillStyle=n%2?"#ffe59e":"#9de7ff";g.beginPath();g.ellipse(x+width*.15-u*28,y+height*.9+u*10,1+u*3,1+u*3,0,0,Math.PI*2);g.fill();}g.globalAlpha=1;
     }
   } finally {g.restore();}
