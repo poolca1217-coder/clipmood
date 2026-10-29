@@ -65,6 +65,7 @@ const figurineReady231 = Promise.all(Object.entries(typeof FIGURINE_ATLASES231 =
   image.src = data.src;
 }))).then(() => {
   artCache76.clear();
+  optionThumbCache.clear();
   const tab = activeMenu();
   if (["댄스", "탈것 친구", "스티커"].includes(tab)) renderToolTab(tab);
   if (figurineStore231.size && [...figurineStore231.values()].some(a=>a.failed)) status("일부 피규어 소재를 읽지 못했습니다. 편집기 파일을 다시 열어 주세요.");
