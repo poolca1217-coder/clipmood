@@ -54,7 +54,22 @@
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
 let suppliedDesigns229 = null;
-const APP_VERSION = "v230";
+const APP_VERSION = "v231";
+// Embedded atlases load once and are shared by thumbnails, preview and export.
+const figurineStore231 = new Map();
+const figurineReady231 = Promise.all(Object.entries(typeof FIGURINE_ATLASES231 === "undefined" ? {} : FIGURINE_ATLASES231).map(([key, data]) => new Promise(resolve => {
+  const image = new Image(), entry = {image, rects:data.rects, masks:data.masks, loaded:false, failed:false};
+  figurineStore231.set(key, entry);
+  image.onload = () => { entry.loaded = true; resolve(); };
+  image.onerror = () => { entry.failed = true; resolve(); };
+  image.src = data.src;
+}))).then(() => {
+  artCache76.clear();
+  const tab = activeMenu();
+  if (["댄스", "탈것 친구", "스티커"].includes(tab)) renderToolTab(tab);
+  if (figurineStore231.size && [...figurineStore231.values()].some(a=>a.failed)) status("일부 피규어 소재를 읽지 못했습니다. 편집기 파일을 다시 열어 주세요.");
+  draw();
+});
 const $ = (id) => document.getElementById(id),
   canvas = $("canvas");
 $("appVersion").textContent = APP_VERSION;
@@ -748,6 +763,7 @@ $("cancel").onclick = () => {
 
 // options.download: 저장 위치 창 없이 다운로드 폴더로 바로 저장 · 성공하면 true를 돌려줍니다.
 async function exportVideo(options = {}) {
+  await figurineReady231;
   if (!clips.length) {
     status("먼저 사진이나 동영상을 추가해 주세요.");
     return false;
@@ -39913,6 +39929,8 @@ function rr178(g, x, y, w, h, r) {
 }
 // 귀여운 얼굴: (x,y)가 얼굴 가운데, sz는 얼굴 너비
 function petHead178(g, x, y, sz, p, t, opt = {}) {
+  const pet = Object.keys(PETS178).find(key=>PETS178[key]===p);
+  if (pet && paintFigPart231(g,"animalHeads",Object.keys(PETS178).indexOf(pet),x-sz*.6,y-sz*.6,sz*1.2,sz*1.2)) return;
   let s = sz / 40,
     flap = Math.sin(t * 9) * 0.25;
   g.save();
@@ -40799,6 +40817,7 @@ const VEHICLES178 = {
   } },
 };
 socialPainters125.motion177 = function (x, d, W, H, t) {
+  if (paintFigVehicle231(x,d,W,H,t)) return;
   let v = VEHICLES178[d.vehicle],
     p = PETS178[d.pet];
   if (!v || !p) return;
@@ -41338,6 +41357,7 @@ function animalHead181(g, a, t, open) {
   g.restore();
 }
 function dancer181(g, d, t, seed = 0) {
+  if (paintFigDancer231(g,d,t,seed)) return;
   let P = pose181(d.move, t, seed),
     human = !!IDOLS181[d.who],
     ch = IDOLS181[d.who] || ANIMALS181[d.who];
@@ -44580,6 +44600,7 @@ suppliedDesigns229 = (function () {
       x.restore();
     },
     hanbok(x, d, t) {
+      if (paintHanbokFig231(x,d,t)) return;
       let skirt = d.color || "#d81b3c",
         top = d.color2 || "#ffd23f";
       x.save();
@@ -45612,6 +45633,8 @@ function paintCoolAnimal230(g, d, W, H, t) {
       g.globalAlpha=.025*fade;ellipse(x-r*.4,y-r*.25,r*1.2,r*.55,"#ffffff",null);
     }
     g.restore();g.globalAlpha=1;
+    // Both the figurine and legacy fallback share the same editable smoke simulation.
+    if (!paintCoolFig231(g,d,t,inhale)) {
     // A grounded, plush silhouette and a gentle breathing motion.
     g.save();g.translate(0,Math.sin(t*2)*1.5);
     if(animal==="cat"||animal==="fox"){
@@ -45672,9 +45695,118 @@ function paintCoolAnimal230(g, d, W, H, t) {
     g.strokeStyle=d.accent||"#63c7d0";g.lineWidth=9;g.beginPath();g.moveTo(-164,21);g.quadraticCurveTo(-130,37,-98,22);g.stroke();
     ellipse(-129,33,7,8,"#ffd36a");
     g.restore();
+    }
   } finally { g.restore(); }
 }
 socialPainters125.coolSmoke230 = paintCoolAnimal230;
+
+// Figurine puppet primitives: original PNG parts, articulated by the existing pose clock.
+function paintFigPart231(g,key,index,x,y,w,h,contain=true) {
+  const atlas=figurineStore231.get(key), r=atlas?.rects[index];
+  if(!atlas?.loaded||!r)return false;
+  if(contain){const s=Math.min(w/r[2],h/r[3]);x+=(w-r[2]*s)/2;y+=(h-r[3]*s)/2;w=r[2]*s;h=r[3]*s;}
+  const masks=atlas.masks?.[index];
+  if(masks?.length){g.save();g.beginPath();g.rect(x,y,w,h);for(const[mx,my,mw,mh]of masks)g.rect(x+(mx-r[0])/r[2]*w,y+(my-r[1])/r[3]*h,mw/r[2]*w,mh/r[3]*h);g.clip("evenodd");}
+  g.drawImage(atlas.image,...r,x,y,w,h);
+  if(masks?.length)g.restore();return true;
+}
+function paintFigHead231(g,human,index,x,chin,width,tilt=0) {
+  const key=human?"humanHeads":"animalHeads",atlas=figurineStore231.get(key),r=atlas?.rects[index];
+  if(!atlas?.loaded||!r)return false;
+  const h=width*r[3]/r[2],chinFraction=human?(index<5?([.75,.74,.82,.87,.74][index]):.97):.95;
+  g.save();g.translate(x,chin);g.rotate(tilt);paintFigPart231(g,key,index,-width/2,-h*chinFraction,width,h,false);g.restore();return true;
+}
+function paintFigLimb231(g,key,row,k,x,y,a1,a2,l1,l2,upper,lower,width) {
+  const [ux,uy]=v181(k,a1),ex=x+ux*l1,ey=y+uy*l1,[vx,vy]=v181(k,a1+a2),hx=ex+vx*l2,hy=ey+vy*l2;
+  const cols=key==="humanKit"?6:4;
+  g.save();g.translate(x,y);g.rotate(Math.atan2(uy,ux)-Math.PI/2);g.scale(k,1);
+  paintFigPart231(g,key,row*cols+upper,-width/2,-width*.25,width,l1+width*.5,false);g.restore();
+  g.save();g.translate(ex,ey);g.rotate(Math.atan2(vy,vx)-Math.PI/2);g.scale(k,1);
+  paintFigPart231(g,key,row*cols+lower,-width*.52,-width*.3,width*1.04,l2+width*.8,false);g.restore();return [hx,hy];
+}
+function paintFigDancer231(g,d,t,seed=0) {
+  if(!["humanHeads","animalHeads","humanKit","animalKit"].every(key=>figurineStore231.get(key)?.loaded))return false;
+  const human=!!IDOLS181[d.who], names=human?Object.keys(IDOLS181):Object.keys(ANIMALS181),index=names.indexOf(d.who);
+  if(index<0)return false;
+  const P=pose181(d.move,t,seed),row=human?(index>=5?2:index===0?1:0):([6,9,11].includes(index)?1:[4,7,8].includes(index)?2:0);
+  g.save();
+  try {
+    const shadow=g.createRadialGradient(P.x,79,1,P.x,79,30);shadow.addColorStop(0,"rgba(9,5,22,.25)");shadow.addColorStop(1,"rgba(9,5,22,0)");
+    g.fillStyle=shadow;g.beginPath();g.ellipse(P.x,79,30,6,0,0,Math.PI*2);g.fill();
+    g.translate(P.x,P.by);g.scale(P.flip,1);g.translate(0,28);g.rotate(P.lean);g.translate(0,-28);
+    for(const [k,a]of[[-1,P.ll],[1,P.rl]]){
+      if(human)paintFigLimb231(g,"humanKit",row,k,k*7,33,a,-a*.7,18,22,4,5,index>=5?12:10);
+      else {g.save();g.translate(k*8,35);g.rotate(-k*a);paintFigPart231(g,"animalKit",row*4+3,-10,-2,20,36,false);g.restore();}
+    }
+    // Long hair is behind the costume; the chin meets the neck rather than the image edge.
+    paintFigHead231(g,human,index,0,5,human?66:63,P.tilt);
+    paintFigPart231(g,human?"humanKit":"animalKit",human?row*6+1:row*4,-22,3,44,human?43:41,false);
+    const hands=[];
+    for(const[k,a]of[[-1,P.la],[1,P.ra]])hands.push(paintFigLimb231(g,human?"humanKit":"animalKit",row,k,k*(human?15:17),human?13:14,a[0],a[1],human?16:13,human?14:12,human?2:1,human?3:2,human?11:14));
+    if(d.mic&&human){const[hx,hy]=hands[1];g.save();g.translate(hx,hy);g.rotate(-.25);const metal=g.createLinearGradient(-3,0,3,0);metal.addColorStop(0,"#191520");metal.addColorStop(.45,"#c4c9db");metal.addColorStop(1,"#343141");g.fillStyle=metal;g.beginPath();g.roundRect(-2,-4,4,13,2);g.fill();g.fillStyle="#a9b0c7";g.beginPath();g.ellipse(0,-6,4,5,0,0,Math.PI*2);g.fill();g.restore();}
+    if(P.hearts){g.save();g.fillStyle="#ff398e";g.globalAlpha=.55+.35*Math.sin(t*4)**2;g.font="15px sans-serif";g.textAlign="center";g.fillText("♥",0,-64-Math.sin(t*3)*3);g.restore();}
+  } finally {g.restore();}
+  return true;
+}
+function paintFigVehicle231(g,d,W,H,t) {
+  if(!["vehicles","animalHeads","animalKit"].every(key=>figurineStore231.get(key)?.loaded))return false;
+  const keys=Object.keys(VEHICLES178),index=keys.indexOf(d.vehicle),pet=Object.keys(PETS178).indexOf(d.pet);
+  if(index<0||pet<0)return false;
+  const config={bike:[.30,.34],motor:[.35,.42],kick:[.38,.62],car:[.51,.24],train:[.23,.30],skate:[.50,.23],plane:[.50,.22],heli:[.51,.52],balloon:[.51,.89],rocket:[.49,.45],ufo:[.50,.42],boat:[.55,.77],sub:[.76,.52]},
+    r=figurineStore231.get("vehicles").rects[index],tall=d.vehicle==="balloon",width=tall?112:185,height=Math.min(tall?155:135,width*r[3]/r[2]),x=-width/2,y=tall?-86:-43,
+    seat=config[d.vehicle],sx=x+seat[0]*width,sy=y+seat[1]*height,land=["bike","motor","kick","car","train","skate"].includes(d.vehicle),open=["bike","motor","kick","skate"].includes(d.vehicle),row=pet===1?0:pet===2?1:2;
+  g.save();
+  try {
+    g.scale(Math.min(W/225,H/205),Math.min(W/225,H/205));
+    g.translate(land?Math.sin(t*2)*2:Math.sin(t*.8)*3,land?Math.sin(t*8)*.65:Math.sin(t*1.6)*3);
+    if(!land)g.rotate(Math.sin(t*1.5)*.025);
+    const rider=()=>{
+      if(open)for(const k of[-1,1]){g.save();g.translate(sx+k*8,sy-6);const pedal=d.vehicle==="bike"?-.35+Math.sin(t*7+k*Math.PI)*.6:d.vehicle==="motor"?-.9+Math.sin(t*5)*.04:k*(.15+Math.sin(t*7+k)*.18);g.rotate(pedal);paintFigPart231(g,"animalKit",row*4+3,-9,0,18,31,false);g.restore();}
+      paintFigPart231(g,"animalKit",row*4,sx-22,sy-47,44,47,false);
+      if(open)for(const k of[-1,1]){const steering=d.vehicle!=="skate";paintFigLimb231(g,"animalKit",row,k,sx+k*15,sy-37,steering?k*1.6:.6+Math.sin(t*4+k)*.08,steering?-.25:.7,15,14,1,2,13);}
+    };
+    if(!open)rider();paintFigPart231(g,"vehicles",index,x,y,width,height,false);if(open)rider();
+    const cabin=["rocket","ufo","sub","heli","plane"].includes(d.vehicle);
+    paintFigHead231(g,false,pet,sx,cabin?sy-7:sy-43,open?65:cabin?40:52,Math.sin(t*2)*.04);
+    // Rotate sampled wheel spokes in place; keep the toy tyre and body geometry intact.
+    const wheels={bike:[[78,183,30],[264,197,35]],motor:[[478,219,15],[662,232,22]],kick:[[840,185,15],[1040,228,20]],car:[[1194,168,14],[1337,210,22]],train:[[79,454,18],[145,464,17],[203,483,12]],skate:[[545,478,12],[711,410,12]]}[d.vehicle]||[];
+    for(const[wx,wy,rad]of wheels){const px=x+(wx-r[0])/r[2]*width,py=y+(wy-r[1])/r[3]*height,rr=rad/r[2]*width;g.save();g.beginPath();g.arc(px,py,rr,0,Math.PI*2);g.clip();g.translate(px,py);g.rotate(t*9);paintFigPart231(g,"vehicles",index,x-px,y-py,width,height,false);g.restore();}
+    if(d.vehicle==="heli"||d.vehicle==="plane"){
+      const px=d.vehicle==="heli"?x+width*.48:x+width*.85,py=d.vehicle==="heli"?y+height*.07:y+height*.49;
+      g.save();g.translate(px,py);g.rotate(t*25);g.strokeStyle="rgba(222,236,250,.65)";g.lineWidth=2;
+      for(let n=0;n<3;n++){g.rotate(Math.PI*2/3);g.beginPath();g.moveTo(0,-3);g.lineTo(0,-(d.vehicle==="heli"?30:15));g.stroke();}g.restore();
+    }
+    if(d.vehicle==="rocket"||d.vehicle==="ufo"){
+      for(let n=0;n<9;n++){const u=(t*.8+n/9)%1;g.globalAlpha=(1-u)*.7;g.fillStyle=n%2?"#ffe59e":"#9de7ff";g.beginPath();g.ellipse(x+width*.15-u*28,y+height*.9+u*10,1+u*3,1+u*3,0,0,Math.PI*2);g.fill();}g.globalAlpha=1;
+    }
+  } finally {g.restore();}
+  return true;
+}
+function paintCoolFig231(g,d,t,inhale) {
+  if(!["animalHeads","animalKit"].every(key=>figurineStore231.get(key)?.loaded))return false;
+  const index={cat:2,dog:0,rabbit:6,bear:4,fox:7,panda:5}[d.animal||"cat"],row=[4,7].includes(index)?2:index===6?1:0;
+  if(index===undefined)return false;
+  g.save();g.translate(0,Math.sin(t*2)*1.5);
+  for(const k of[-1,1])paintFigPart231(g,"animalKit",row*4+3,-132+k*23-19,82,38,39,false);
+  paintFigPart231(g,"animalKit",row*4,-177,17,94+inhale*2,91,false);
+  paintFigHead231(g,false,index,-130,18,123,-.025);
+  g.save();g.translate(-83,27+inhale);g.rotate(.5);paintFigPart231(g,"animalKit",row*4+2,-16,-10,32,46,false);g.restore();
+  for(const x of[-157,-111]){const lens=g.createLinearGradient(x-15,-47,x+15,-23);lens.addColorStop(0,"#67809e");lens.addColorStop(.4,"#101b32");lens.addColorStop(1,"#040914");g.fillStyle=lens;g.strokeStyle="#e9ba55";g.lineWidth=2.5;g.beginPath();g.roundRect(x-20,-48,40,29,10);g.fill();g.stroke();g.strokeStyle="#d9edff";g.lineWidth=2;g.beginPath();g.moveTo(x-12,-42);g.lineTo(x-4,-37);g.stroke();}
+  g.strokeStyle="#e9ba55";g.lineWidth=3;g.beginPath();g.moveTo(-137,-36);g.quadraticCurveTo(-134,-40,-131,-36);g.stroke();
+  g.save();g.translate(-87,-8);g.rotate(-.06+inhale*.025);g.fillStyle="#c28b57";g.beginPath();g.roundRect(0,-3.5,12,7,2);g.fill();g.fillStyle="#faf3e6";g.fillRect(12,-3.5,25,7);g.fillStyle="#fd6b43";g.fillRect(37,-3.5,4,7);g.fillStyle=`rgba(255,197,79,${.5+inhale*.5})`;g.fillRect(40,-2.5,2,5);g.restore();
+  g.restore();return true;
+}
+function paintHanbokFig231(g,d,t) {
+  if(!figurineStore231.get("hanbok")?.loaded)return false;
+  const bow=Math.max(0,Math.sin(t*1.4))*.10,sway=Math.sin(t*1.8)*.035;
+  g.save();g.translate(0,15);g.rotate(sway);g.scale(1,1-bow);
+  paintFigPart231(g,"hanbok",0,-47,-112,94,121,false);
+  g.save();g.translate(0,2);g.rotate(-sway*.7);
+  if(d.color&&d.color.toLowerCase()!=="#ff7fb0")g.filter=d.color==="#d81b3c"?"hue-rotate(-16deg) saturate(1.35)":"hue-rotate(18deg)";
+  paintFigPart231(g,"hanbok",1,-60,-8,120,139,false);g.restore();
+  for(const k of[-1,1]){g.save();g.translate(k*21,5);g.rotate(-k*(.3+.2*Math.sin(t*1.8+k)));g.scale(k,1);paintFigPart231(g,"hanbok",2,-8,-4,27,67,false);g.restore();}
+  g.restore();return true;
+}
 for (const [animal,name,fur,belly,accent] of [
   ["cat","고양이","#f3ad64","#fff0d7","#64ced6"],
   ["dog","강아지","#e4bb83","#fff1dc","#ec8299"],
