@@ -13989,6 +13989,7 @@ function presetForOption(tab, item) {
   }
   if (tab === "스티커") Object.assign(result, { stickerX: 0.8, stickerY: 0.25, stickerSize: 100 });
   if (tab === "스티커" && item.design?.style === "coolSmoke230") Object.assign(result, { stickerX: 0.5, stickerY: 0.72 });
+  if (tab === "스티커" && item.design?.style === "cta234") Object.assign(result, { stickerX: 0.5, stickerY: 0.82, stickerSize: 160 });
   if (tab === "효과" && weatherPresets53.has(item.value)) result.effectSpeed = 1;
   if (tab === "효과" && weatherPresets53.has(item.value))
     Object.assign(result, { effectSpeed: 1, effectThickness: 1, effectAmount: 1 });
