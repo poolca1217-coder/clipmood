@@ -54,7 +54,7 @@
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
 let suppliedDesigns229 = null;
-const APP_VERSION = "v233";
+const APP_VERSION = "v234";
 // Embedded atlases load once and are shared by thumbnails, preview and export.
 const figurineStore231 = new Map();
 const figurineReady231 = Promise.all(Object.entries(typeof FIGURINE_ATLASES231 === "undefined" ? {} : FIGURINE_ATLASES231).map(([key, data]) => new Promise(resolve => {
@@ -1842,6 +1842,7 @@ function buildPresetLibrary(tab) {
   toolbox.prepend(shell);
   let category = "전체";
   let categories = ["전체", ...new Set(libraries[tab].map((p) => p.category))];
+  if(tab==="스티커")categories=["전체",...categories.filter(c=>c?.startsWith("구독·팔로우 ·")),...categories.filter(c=>c!=="전체"&&!c?.startsWith("구독·팔로우 ·"))];
   function refresh() {
     grid.replaceChildren();
     let q = input.value.toLowerCase();
@@ -7952,6 +7953,7 @@ function liveBadge125(x, d, W, H, t) {
   x.fillText(text, dx + h * 0.3 + (W / 2 - dx - h * 0.3) / 2, h * 0.03);
 }
 const socialPainters125 = {
+  cta234: paintCta234,
   subscribe: subscribeButton125,
   iconpill: iconPill125,
   combo: socialCombo125,
@@ -45845,6 +45847,74 @@ for (const [animal,name,fur,belly,accent] of [
   ["fox","여우","#e89757","#fff0dc","#75bda4"],
   ["panda","판다","#f0efea","#ffffff","#e482a0"],
 ]) stickerLibrary.push({id:"cool-smoke230-"+animal,name:"선글라스 "+name+" · 연기 내뿜기",category:"선글라스 동물 · 연기",emoji:name,design:{style:"coolSmoke230",animal,fur,belly,accent,w:4.8,h:3,color:accent,name}});
+
+function paintCta234(g,d,W,H,t) {
+  const phase=((t%5)+5)%5,done=phase>=1.5&&phase<4.7,press=1-.065*Math.exp(-(((phase-1.5)/.13)**2)),
+    accent=d.color||"#f52c49",ink="#252334",host=Number.isInteger(d.host234),mode=d.ctaMode234||"board";
+  g.save();
+  try {
+    // The complete host is drawn once, without detachable or rotated body parts.
+    if(host)paintFigPart231(g,"ctaHosts234",d.host234,-W*.49,-H*.49,W*.48,H*.98,true);
+    const cx=host?W*.17:0,bw=host?W*.62:W*.92,bh=host?H*.55:H*.78;
+    const rounded=(x,y,w,h,r,fill)=>{g.fillStyle=fill;g.beginPath();g.roundRect(x,y,w,h,r);g.fill();};
+    const label=(text,x,y,size,color,max=bw*.9)=>{font125(g,800,size,text,max);g.fillStyle=color;g.textAlign="center";g.textBaseline="middle";g.fillText(text,x,y);};
+    const playIcon=(x,y,r,color)=>{g.fillStyle=color;g.beginPath();g.moveTo(x-r*.45,y-r);g.lineTo(x+r,y);g.lineTo(x-r*.45,y+r);g.closePath();g.fill();};
+    const bell=(x,y,r)=>{g.save();g.translate(x,y);if(done)g.rotate(Math.sin((phase-1.5)*23)*.3*Math.exp(-(phase-1.5)*1.7));g.fillStyle=done?accent:"#737080";g.beginPath();g.moveTo(-r*.72,r*.5);g.quadraticCurveTo(-r*.5,r*.1,-r*.5,-r*.25);g.bezierCurveTo(-r*.5,-r,r*.5,-r,r*.5,-r*.25);g.quadraticCurveTo(r*.5,r*.1,r*.72,r*.5);g.closePath();g.fill();g.beginPath();g.arc(0,r*.75,r*.19,0,Math.PI*2);g.fill();g.restore();};
+    const mark=(x,y,r)=>{g.strokeStyle="#fff";g.lineWidth=r*.28;g.lineCap="round";g.lineJoin="round";g.beginPath();g.moveTo(x-r*.65,y);g.lineTo(x-r*.12,y+r*.5);g.lineTo(x+r*.75,y-r*.55);g.stroke();};
+    const stars=(count=14)=>{const u=(phase-1.5)/1.2;if(u<0||u>1)return;g.save();g.globalAlpha*=Math.sin(Math.PI*u);for(let n=0;n<count;n++){const a=n*2.39996,r=bw*(.22+.3*u),x=cx+Math.cos(a)*r,y=Math.sin(a)*bh*(.4+.42*u);g.fillStyle=[accent,"#ffbd2f","#48d9ee"][n%3];g.beginPath();if(mode==="burst"){const s=H*.035;g.moveTo(x,y+s);g.bezierCurveTo(x-s*2,y,x-s,y-s*1.6,x,y-s*.5);g.bezierCurveTo(x+s,y-s*1.6,x+s*2,y,x,y+s);}else g.ellipse(x,y,2+H*.012,2+H*.007,a,0,Math.PI*2);g.fill();}g.restore();};
+    const text=done?(d.doneText||"SUBSCRIBED"):(d.text||"SUBSCRIBE");
+    if(mode==="follow"){
+      label(d.text||"FOLLOW ME",cx,-H*.07,H*.19,"#fff");
+      g.strokeStyle=accent;g.lineWidth=Math.max(2,H*.023);g.lineCap="round";g.beginPath();g.moveTo(cx-bw*.36,H*.08);g.quadraticCurveTo(cx,H*(.14+.02*Math.sin(t*3)),cx+bw*.36,H*.08);g.stroke();
+      label(d.sub||"함께해요",cx,H*.24,H*.092,"#ffe4ee");stars(9);
+    }else if(mode==="stack"){
+      for(let i=0;i<3;i++){const y=(i-1)*bh*.34,active=(i===0?phase>.6:i===1?done:phase>2.8),fill=i===1?accent:"#fff";
+        rounded(cx-bw*.48,y-bh*.145,bw*.96,bh*.29,4,fill);
+        label(i===0?(active?"✓ LIKED":"LIKE"):i===1?text:(active?"✓ THANK YOU":"COMMENT"),cx,y,bh*.14,i===1?"#fff":ink);
+      }stars();
+    }else if(mode==="outline"){
+      g.strokeStyle=accent;g.lineWidth=Math.max(2,H*.02);g.shadowColor=accent;g.shadowBlur=H*.08;g.beginPath();g.roundRect(cx-bw/2,-bh*.32,bw,bh*.64,12);g.stroke();g.shadowBlur=0;
+      label(done?(d.doneText||"THANK YOU"):(d.text||"SUBSCRIBE"),cx-bw*.07,-bh*.02,bh*.24,"#fff",bw*.69);bell(cx+bw*.4,0,bh*.12);stars(10);
+    }else{
+      g.save();g.translate(cx,0);g.scale(press,press);
+      if(mode==="board"){
+        g.shadowColor="rgba(0,0,0,.26)";g.shadowBlur=H*.045;g.shadowOffsetY=H*.015;rounded(-bw/2,-bh/2,bw,bh,bh*.09,"#fff");g.shadowBlur=0;g.shadowOffsetY=0;
+        label(d.sub||"좋아요 · 구독 · 알림",0,-bh*.29,bh*.12,ink);
+        rounded(-bw*.28,-bh*.075,bw*.58,bh*.36,bh*.06,done?"#303240":accent);
+        label(text,bw*.01,bh*.11,bh*.135,"#fff",bw*.52);
+        label(phase>.7?"♥":"♡",-bw*.39,bh*.09,bh*.28,accent,bw*.16);bell(bw*.4,bh*.08,bh*.14);
+        rounded(-bw*.39,bh*.38,bw*.78,bh*.025,2,"#ece9f0");
+      }else{
+        const gradient=g.createLinearGradient(-bw*.5,-bh*.25,bw*.5,bh*.25);gradient.addColorStop(0,accent);gradient.addColorStop(1,mode==="thanks"?"#842dff":"#ff6d35");
+        g.shadowColor="rgba(0,0,0,.22)";g.shadowBlur=H*.04;rounded(-bw/2,-bh*.31,bw,bh*.62,mode==="pill"?bh*.31:bh*.08,gradient);g.shadowBlur=0;
+        if(done)mark(-bw*.37,0,bh*.13);else playIcon(-bw*.37,0,bh*.13,"#fff");
+        label(mode==="thanks"?(d.text||"THANK YOU"):text,bw*.055,0,bh*.23,"#fff",bw*.68);
+      }
+      g.restore();
+      if(mode==="play")label(d.sub||"YOUTUBE CHANNEL",cx,bh*.46,bh*.12,"#fff");
+      // Cursor and click ring animate, while host silhouette stays completely intact.
+      const u=Math.max(0,Math.min(1,(phase-.4)/.8)),leave=Math.max(0,Math.min(1,(phase-2.7)/.5));
+      if(phase>.4&&phase<3.2){g.save();g.globalAlpha*=1-leave;const x=cx+bw*.17+(1-u)*bw*.18,y=bh*.15+(1-u)*bh*.5;
+        g.translate(x,y);g.fillStyle="#fff";g.strokeStyle="#252334";g.lineWidth=Math.max(1,H*.008);g.beginPath();g.moveTo(0,0);g.lineTo(H*.015,H*.14);g.lineTo(H*.05,H*.105);g.lineTo(H*.093,H*.12);g.closePath();g.fill();g.stroke();g.restore();}
+      const click=(phase-1.5)/.5;if(click>0&&click<1){g.save();g.globalAlpha*=1-click;g.strokeStyle=accent;g.lineWidth=2;g.beginPath();g.arc(cx+bw*.17,bh*.15,H*(.03+.12*click),0,Math.PI*2);g.stroke();g.restore();}
+      if(mode==="burst"||mode==="board"||mode==="thanks")stars();
+    }
+  }finally{g.restore();}
+}
+for(const [id,name,host234,ctaMode234,text,doneText,sub,color]of[
+  ["boy","남자 호스트 · 구독 안내",0,"board","구독하기","구독 완료","좋아요 · 구독 · 알림","#f32e48"],
+  ["girl","여자 호스트 · 구독 안내",1,"board","SUBSCRIBE","SUBSCRIBED","THANKS FOR WATCHING","#e92775"],
+  ["cat","선글라스 고양이 · 구독 안내",2,"board","구독 꾹","감사합니다","좋아요도 부탁해요","#ed3540"],
+  ["rabbit","토끼 · 구독 안내",3,"board","구독하기","구독 완료","함께해 주셔서 감사해요","#d62273"],
+  ["cat-follow","고양이 · FOLLOW ME",2,"follow","FOLLOW ME","","우리 또 만나요","#ff4f93"],
+  ["rabbit-follow","토끼 · 팔로우",3,"follow","팔로우 해요","","새 영상에서 만나요","#c449ff"],
+  ["stack","좋아요 · 구독 · 댓글",null,"stack","SUBSCRIBE","SUBSCRIBED","","#fa3045"],
+  ["pill","구독 버튼 · 클릭",null,"pill","SUBSCRIBE","SUBSCRIBED","","#f52244"],
+  ["outline","네온 알림 · 구독",null,"outline","SUBSCRIBE","THANK YOU","","#ff394d"],
+  ["play","채널 구독 · 플레이",null,"play","MY CHANNEL","SUBSCRIBED","","#eb273d"],
+  ["burst","하트 축하 · 구독 완료",null,"burst","SUBSCRIBE","SUBSCRIBED","","#f02c53"],
+  ["thanks","시청 감사 · THANK YOU",null,"thanks","THANK YOU","THANK YOU","","#c22dba"],
+])stickerLibrary.push({id:"cta234-"+id,name,category:Number.isInteger(host234)?"구독·팔로우 · 캐릭터":"구독·팔로우 · 버튼",emoji:"▶",design:{style:"cta234",host234,ctaMode234,text,doneText,sub,color,w:Number.isInteger(host234)?4.8:4.4,h:Number.isInteger(host234)?2.7:1.5,name}});
 
 installEditorFields233();
 
