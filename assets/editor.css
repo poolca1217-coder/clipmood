@@ -1671,8 +1671,15 @@ label.field > textarea {
   flex-direction: column;
   gap: 4px;
   padding: 10px 5px;
+  max-height: clamp(150px, 38vh, 420px);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  align-self: start;
 }
 .toolbox .library-side button {
+  flex-shrink: 0;
   padding: 8px 6px;
   min-height: 0;
   background: transparent;
@@ -4537,6 +4544,9 @@ label.field > output.editable-value96 {
 .toolbox .preset-grid {
   grid-template-columns:minmax(0,1fr)!important;
   gap:5px!important;
+  max-height:clamp(150px,38vh,420px);
+  overscroll-behavior-y:contain;
+  scrollbar-width:thin;
 }
 
 .toolbox .preset-card {

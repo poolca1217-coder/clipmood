@@ -54,7 +54,7 @@
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
 let suppliedDesigns229 = null;
-const APP_VERSION = "v234";
+const APP_VERSION = "v235";
 // Embedded atlases load once and are shared by thumbnails, preview and export.
 const figurineStore231 = new Map();
 const figurineReady231 = Promise.all(Object.entries(typeof FIGURINE_ATLASES231 === "undefined" ? {} : FIGURINE_ATLASES231).map(([key, data]) => new Promise(resolve => {
@@ -1922,6 +1922,7 @@ function buildPresetLibrary(tab) {
       grid.append(empty);
     }
     cats.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.textContent === category));
+    grid.scrollTop = 0;
   }
   for (let name of categories) {
     let button = document.createElement("button");
@@ -1929,6 +1930,9 @@ function buildPresetLibrary(tab) {
     button.onclick = () => {
       category = name;
       refresh();
+      // A long category column must not leave the newly filtered cards above the viewport.
+      const view=firstAside.getBoundingClientRect(),panel=shell.getBoundingClientRect();
+      if(panel.top<view.top||panel.top>view.bottom-100)firstAside.scrollTop+=panel.top-view.top-8;
     };
     cats.append(button);
   }
