@@ -6062,6 +6062,10 @@ header.clean190 .menu190 .primary190,header.clean190 .menu190 .primary190:hover{
 /* v193 · 세로 탭 + 내용 칸을 grid 대신 flex로 (미디어 목록이 겹치던 문제) */
 body.clean-ui190 .workspace>aside:first-of-type{display:flex !important;align-items:flex-start;gap:10px}
 body.clean-ui190 .workspace>aside:first-of-type>.tabs{flex:0 0 66px;width:66px;grid-row:auto}
+.editor-field-picker233{display:flex;flex-direction:column;gap:4px;padding:4px 3px 8px;border-bottom:1px solid var(--c-line);margin-bottom:4px;flex-shrink:0}
+.editor-field-picker233>span{font-size:10px;text-align:center;color:var(--c-dim)}
+.editor-field-picker233>select{width:60px;min-width:0;height:30px;padding:2px;font-size:11px;border:1px solid var(--c-line);border-radius:7px;background:var(--c-panel2);color:var(--c-text);cursor:pointer}
+body.clean-ui190 aside .tabs button[hidden]{display:none !important}
 body.clean-ui190 .workspace>aside:first-of-type>.leftbody193{flex:1 1 auto;min-width:0;display:block}
 body.clean-ui190 #assets{grid-auto-rows:max-content}
 .leftbody193 > button.demo{font-size:12px !important}

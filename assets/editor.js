@@ -54,7 +54,7 @@
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
 let suppliedDesigns229 = null;
-const APP_VERSION = "v232";
+const APP_VERSION = "v233";
 // Embedded atlases load once and are shared by thumbnails, preview and export.
 const figurineStore231 = new Map();
 const figurineReady231 = Promise.all(Object.entries(typeof FIGURINE_ATLASES231 === "undefined" ? {} : FIGURINE_ATLASES231).map(([key, data]) => new Promise(resolve => {
@@ -1565,6 +1565,7 @@ function showTab(tab) {
   // 탭마다 라이브러리 카드 배치를 CSS로 고릅니다 (v107~v116 압축 레이아웃).
   toolbox.setAttribute("data-library-tab", tab);
   toolbox.setAttribute("data-library-layout", libraryLayoutFor(tab));
+  syncEditorField233(tab);
 }
 
 function libraryLayoutFor(tab) {
@@ -1575,6 +1576,7 @@ function libraryLayoutFor(tab) {
 
 function highlightTab(tab) {
   tabs.querySelectorAll("button").forEach((b, i) => b.classList.toggle("active", menu[i]?.[0] === tab));
+  syncEditorField233(tab);
 }
 
 // 오디오 탭 제목줄에 효과음 탭으로 가는 버튼을 붙입니다.
@@ -2675,6 +2677,58 @@ const menu = [
   ["스톡 미디어", "▧"],
   ["효과음", "♫"],
 ];
+const editorFields233 = [
+  {id:"media",name:"소재",description:"미디어 관리 · 스톡미디어 · 배경 에셋",tabs:["미디어","스톡 미디어","에셋"]},
+  {id:"audio",name:"음악",description:"배경음악 · 효과음 · 자연음",tabs:["오디오","효과음"]},
+  {id:"text",name:"글자",description:"제목 · 자막 · 노래 가사",tabs:["텍스트","캡션"]},
+  {id:"character",name:"캐릭터",description:"스티커 · 동물과 탈것 · 댄스",tabs:["스티커","탈것 친구","댄스"]},
+  {id:"effect",name:"화면효과",description:"날씨 · 입자 · 카메라 효과 · 테두리 · 조명",tabs:["효과","테두리","조명"]},
+  {id:"transition",name:"전환",description:"장면과 장면을 연결하는 전환",tabs:["전환"]},
+  {id:"color",name:"색감",description:"필터와 색감 스타일",tabs:["필터"]},
+  {id:"template",name:"템플릿",description:"인트로 · 엔딩 · 여러 요소를 묶은 구성",tabs:["템플릿"]},
+  {id:"visualizer",name:"비주얼",description:"음악에 반응하는 오디오 비주얼라이저",tabs:["비주얼라이저"]},
+];
+function syncEditorField233(tab) {
+  const picker=$("editorField233");
+  if(!picker)return;
+  const field=editorFields233.find(f=>f.tabs.includes(tab));
+  // Keep legacy menu/button indexes intact: hide tabs, never move or recreate them.
+  if(field&&picker.value!=="all"&&picker.value!==field.id)picker.value=field.id;
+  const chosen=editorFields233.find(f=>f.id===picker.value);
+  tabs.querySelectorAll("button").forEach((button,i)=>{
+    const name=menu[i]?.[0];
+    button.hidden=!!chosen&&!chosen.tabs.includes(name);
+    button.setAttribute("aria-selected",String(button.classList.contains("active")));
+  });
+  picker.title=chosen?.description||"모든 분야의 옵션 메뉴 보기";
+  const label=$("editorFieldHint233");
+  if(label)label.textContent=chosen?.name||"전체";
+}
+function installEditorFields233() {
+  if($("editorField233"))return;
+  const label=document.createElement("label"),caption=document.createElement("span"),picker=document.createElement("select");
+  label.className="editor-field-picker233";
+  caption.textContent="분야";
+  caption.id="editorFieldHint233";
+  picker.id="editorField233";
+  picker.setAttribute("aria-label","옵션 분야 선택");
+  for(const field of [{id:"all",name:"전체",description:"모든 옵션 메뉴"},...editorFields233]){
+    const option=document.createElement("option");option.value=field.id;option.textContent=field.name;option.title=field.description;picker.append(option);
+  }
+  picker.value="media";
+  picker.onchange=()=>{
+    if(busy||projectOperation){syncEditorField233(menu[[...tabs.querySelectorAll("button")].findIndex(b=>b.classList.contains("active"))]?.[0]);return;}
+    const field=editorFields233.find(f=>f.id===picker.value),buttons=[...tabs.querySelectorAll("button")];
+    if(!field){syncEditorField233();return;}
+    const index=buttons.findIndex((b,i)=>b.classList.contains("active")&&field.tabs.includes(menu[i]?.[0]));
+    if(index>=0){syncEditorField233(menu[index][0]);return;}
+    const target=buttons.find((b,i)=>menu[i]?.[0]===field.tabs[0]);
+    // Native tab click also clears the inherited dance/frame/light submode flags.
+    if(target){target.hidden=false;target.click();}
+  };
+  label.append(caption,picker);tabs.prepend(label);
+  syncEditorField233(menu[[...tabs.querySelectorAll("button")].findIndex(b=>b.classList.contains("active"))]?.[0]||"미디어");
+}
 function note(text) {
   let p = document.createElement("p");
   p.className = "tab-help";
@@ -45791,4 +45845,6 @@ for (const [animal,name,fur,belly,accent] of [
   ["fox","여우","#e89757","#fff0dc","#75bda4"],
   ["panda","판다","#f0efea","#ffffff","#e482a0"],
 ]) stickerLibrary.push({id:"cool-smoke230-"+animal,name:"선글라스 "+name+" · 연기 내뿜기",category:"선글라스 동물 · 연기",emoji:name,design:{style:"coolSmoke230",animal,fur,belly,accent,w:4.8,h:3,color:accent,name}});
+
+installEditorFields233();
 
