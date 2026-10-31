@@ -54,7 +54,7 @@
  */
 // 버전 표기는 이 한 곳만 바꾸면 화면 전체에 반영됩니다.
 let suppliedDesigns229 = null;
-const APP_VERSION = "v235";
+const APP_VERSION = "v236";
 // Embedded atlases load once and are shared by thumbnails, preview and export.
 const figurineStore231 = new Map();
 const figurineReady231 = Promise.all(Object.entries(typeof FIGURINE_ATLASES231 === "undefined" ? {} : FIGURINE_ATLASES231).map(([key, data]) => new Promise(resolve => {
@@ -45854,6 +45854,11 @@ for (const [animal,name,fur,belly,accent] of [
 ]) stickerLibrary.push({id:"cool-smoke230-"+animal,name:"선글라스 "+name+" · 연기 내뿜기",category:"선글라스 동물 · 연기",emoji:name,design:{style:"coolSmoke230",animal,fur,belly,accent,w:4.8,h:3,color:accent,name}});
 
 function paintCta234(g,d,W,H,t) {
+  if (d.creatureAtlas236) {
+    // One complete character/phone image: no detached paws or distorted anatomy.
+    paintFigPart231(g,d.creatureAtlas236,d.creatureIndex236,-W/2,-H/2,W,H,true);
+    return;
+  }
   const phase=((t%5)+5)%5,done=phase>=1.5&&phase<4.7,press=1-.065*Math.exp(-(((phase-1.5)/.13)**2)),
     accent=d.color||"#f52c49",ink="#252334",host=Number.isInteger(d.host234),mode=d.ctaMode234||"board";
   g.save();
@@ -45920,6 +45925,12 @@ for(const [id,name,host234,ctaMode234,text,doneText,sub,color]of[
   ["burst","하트 축하 · 구독 완료",null,"burst","SUBSCRIBE","SUBSCRIBED","","#f02c53"],
   ["thanks","시청 감사 · THANK YOU",null,"thanks","THANK YOU","THANK YOU","","#c22dba"],
 ])stickerLibrary.push({id:"cta234-"+id,name,category:Number.isInteger(host234)?"구독·팔로우 · 캐릭터":"구독·팔로우 · 버튼",emoji:"▶",design:{style:"cta234",host234,ctaMode234,text,doneText,sub,color,w:Number.isInteger(host234)?4.8:4.4,h:Number.isInteger(host234)?2.7:1.5,name}});
+
+for(const [atlas,category,names]of[
+  ["subscribeAnimals236","구독 동물 · 휴대폰",["수달","레서판다","카피바라","사막여우"]],
+  ["subscribeUnusual236","구독 동물 · 특별한 친구",["아홀로틀","천산갑","오리너구리","별빛 문어"]],
+  ["subscribeAliens236","구독 외계인 · 우주 친구",["민트 외계인","세 눈 외계인","별빛 젤리 외계인","여섯 팔 외계인"]],
+])names.forEach((animal,index)=>{const name=animal+" · 휴대폰 구독 안내";stickerLibrary.push({id:"cta236-"+atlas+"-"+index,name,category,emoji:"▶",design:{style:"cta234",creatureAtlas236:atlas,creatureIndex236:index,w:1.1,h:1,name}});});
 
 installEditorFields233();
 
