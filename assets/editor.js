@@ -56,7 +56,7 @@
 let suppliedDesigns229 = null;
 // v233 · 타임라인에 넣는 스티커 기본 길이(초)
 const STICKER_SECONDS233 = 10;
-const APP_VERSION = "v244";
+const APP_VERSION = "v245";
 // Embedded atlases load once and are shared by thumbnails, preview and export.
 const figurineStore231 = new Map();
 const figurineReady231 = Promise.all(Object.entries(typeof FIGURINE_ATLASES231 === "undefined" ? {} : FIGURINE_ATLASES231).map(([key, data]) => new Promise(resolve => {
@@ -14383,11 +14383,16 @@ $("timelineScroll").addEventListener(
         items =
           data.tab === "비주얼라이저"
             ? visualizerLibrary
+            : data.tab === "효과"
+              ? effectLibrary
             : data.tab === "에셋"
-              ? [...libraries["에셋"], ...stockLibrary87]
+              ? [...assetLibrary, ...(libraries["에셋"] || []), ...stockLibrary87]
               : data.tab === "스티커" ? stickerLibrary : libraries[data.tab] || [],
         item = items.find((o) => (o.id || o.name) === data.id);
-      if (!item) return;
+      if (!item) {
+        status("해당 옵션을 찾지 못했습니다. 옵션 목록에서 다시 끌어 넣어 주세요.");
+        return;
+      }
       let at = snapCutPosition(Math.max(0, (e.clientX - $("ruler").getBoundingClientRect().left) / pixels));
       const imageBounds = $("track").getBoundingClientRect();
       await dropPaletteOption(data.tab, item, at, e.clientY > imageBounds.top + imageBounds.height ? "below" : "above");
@@ -17724,7 +17729,7 @@ function renderMotionMedia(c, e, w, h, s, dx, dy, rotate, local) {
       m = mediaMotion59(
         layer.effect,
         t,
-        t / Math.max(0.01, layer.end - layer.start),
+        motionProgress245(t, layer.end - layer.start),
         canvas.width,
         canvas.height,
         p.pulseAmount60 ?? 0.09,
@@ -18381,6 +18386,12 @@ function drawAtmosphereShape(effect, t, c) {
 // Draw each timed option exactly once, clipped to the photo/video rather than the letterbox.
 
 // Remove the old media oscillation and apply all active media effects in one place.
+function motionProgress245(t, duration) {
+  // Long music/photo clips need visible movement, independent of their hours-long duration.
+  // A smooth twenty-second outward/return cycle has no jump at either turnaround.
+  if (duration > 20) return (1 - Math.cos(Math.max(0,t) * Math.PI / 10)) / 2;
+  return Math.max(0,Math.min(1,t / Math.max(.01,duration)));
+}
 function mediaMotion59(effect, t, phase, W, H, amount) {
   let result;
   if (effect !== "pulse") {
