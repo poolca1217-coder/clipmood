@@ -21099,7 +21099,7 @@ previewAdd73.onclick = async function () {
     } else {
       stopOptionPreview73(false);
       if (p.tab === "에셋") await applyDirectPhotoPreset(p.tab, p.item);
-      else await applyCardToImage56(p.tab, p.item);
+      else await applyCardToImage56(p.tab, p.item, undefined, p.tab === "효과" && p.item.value !== "none");
       draw();
     }
     preservePreview75(preview, before);
